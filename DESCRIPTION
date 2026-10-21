@@ -1,0 +1,42 @@
+Package: gaussianprocesses
+Type: Package
+Title: Gaussian Processes from First Principles
+Version: 1.0.0
+Authors@R: 
+    person(
+        given = "Diogo",
+        family = "Ribeiro",
+        role = c("aut", "cre"),
+        email = "dfr@esmad.ipp.pt",
+        comment = c(
+            ORCID = "0009-0001-2022-7072",
+            affiliation = "Faculty of Media Arts and Design of the Technical University of Porto"
+        )
+    )
+Description: Gaussian process regression, classification, and count models
+    with explicit covariance kernels, exact Gaussian inference, Laplace
+    approximations for non-Gaussian likelihoods, sparse approximations,
+    marginal-likelihood optimization, derivatives, posterior sampling,
+    calibration diagnostics, and time-series workflows. The implementation
+    follows the core methodology of Rasmussen and Williams (2006)
+    <doi:10.7551/mitpress/3206.001.0001> and emphasizes numerical stability,
+    transparent assumptions, and reproducible statistical workflows.
+License: MIT + file LICENSE
+URL: https://gaussian-processes-r-12efed.gitlab.io/,
+        https://gitlab.com/DiogoRibeiro7/gaussian-processes-r
+Encoding: UTF-8
+Language: en-US
+RoxygenNote: 7.3.3
+Imports: stats
+Suggests: DiceKriging, gplite, kernlab, knitr, nlme, rmarkdown,
+        testthat (>= 3.0.0), yaml
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+NeedsCompilation: no
+Packaged: 2026-10-10 23:02:11 UTC; diogo
+Author: Diogo Ribeiro [aut, cre] (ORCID:
+    <https://orcid.org/0009-0001-2022-7072>, affiliation: Faculty of
+    Media Arts and Design of the Technical University of Porto)
+Maintainer: Diogo Ribeiro <dfr@esmad.ipp.pt>
+Repository: CRAN
+Date/Publication: 2026-10-21 15:00:02 UTC

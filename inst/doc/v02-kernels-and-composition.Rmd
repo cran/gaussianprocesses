@@ -1,0 +1,246 @@
+---
+title: "Covariance Kernels and Composition"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Covariance Kernels and Composition}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(gaussianprocesses)
+```
+
+# Covariance as model structure
+
+A Gaussian-process kernel specifies how values of the latent function co-vary.
+
+For any finite input set \(X\), the matrix
+
+\[
+K_{ij} = k(x_i,x_j)
+\]
+
+must be positive semidefinite.
+
+This package keeps the numerical kernel functions and reusable kernel
+specifications separate.
+
+For example:
+
+```{r}
+x <- seq(-2, 2, length.out = 5)
+
+kernel_rbf(
+  x,
+  variance = 2,
+  length_scale = 0.8
+)
+
+specification <- rbf_kernel(
+  variance = 2,
+  length_scale = 0.8
+)
+
+evaluate_kernel(specification, x)
+```
+
+# Squared-exponential kernel
+
+The squared-exponential kernel is
+
+\[
+k(x,x')
+=
+\sigma_f^2
+\exp\left(
+-\frac{1}{2}
+\sum_{d=1}^D
+\frac{(x_d-x_d')^2}{\ell_d^2}
+\right).
+\]
+
+A single \(\ell\) gives an isotropic kernel. A vector
+\((\ell_1,\ldots,\ell_D)\) gives ARD.
+
+In code:
+
+```{r}
+rbf_kernel(
+  variance = 1.5,
+  length_scale = 0.7
+)
+```
+
+# Matérn family
+
+The package supplies \(\nu=1/2\), \(3/2\), and \(5/2\).
+
+Let the scaled distance be
+
+\[
+r =
+\sqrt{
+\sum_{d=1}^D
+\frac{(x_d-x_d')^2}{\ell_d^2}
+}.
+\]
+
+Then
+
+\[
+k_{1/2}(r)=
+\sigma_f^2 e^{-r},
+\]
+
+\[
+k_{3/2}(r)=
+\sigma_f^2(1+\sqrt{3}r)e^{-\sqrt{3}r},
+\]
+
+and
+
+\[
+k_{5/2}(r)=
+\sigma_f^2
+\left(
+1+\sqrt{5}r+\frac{5r^2}{3}
+\right)
+e^{-\sqrt{5}r}.
+\]
+
+The smoothness assumption is therefore visible in the kernel choice rather
+than hidden inside the fitting function.
+
+# Rational quadratic
+
+The rational-quadratic kernel is
+
+\[
+k(r)
+=
+\sigma_f^2
+\left(
+1+\frac{r^2}{2\alpha}
+\right)^{-\alpha}.
+\]
+
+It can be interpreted as a scale mixture of squared-exponential kernels.
+
+```{r}
+rational_quadratic_kernel(
+  variance = 1,
+  length_scale = 0.5,
+  alpha = 1.2
+)
+```
+
+# Periodic structure
+
+For one input dimension,
+
+\[
+k(x,x')
+=
+\sigma_f^2
+\exp\left(
+-\frac{
+2\sin^2\left(\pi(x-x')/p\right)
+}{\ell^2}
+\right).
+\]
+
+`period` is \(p\), while `length_scale` controls smoothness within the
+cycle.
+
+```{r}
+periodic_kernel(
+  variance = 1,
+  length_scale = 0.8,
+  period = 12
+)
+```
+
+# Sums and products
+
+If \(k_1\) and \(k_2\) are valid kernels, then so are
+
+\[
+k(x,x') = k_1(x,x') + k_2(x,x')
+\]
+
+and
+
+\[
+k(x,x') = k_1(x,x')k_2(x,x').
+\]
+
+The package mirrors this directly:
+
+```{r}
+trend <- linear_kernel(variance = 0.05)
+
+seasonal <- periodic_kernel(
+  variance = 1,
+  length_scale = 0.8,
+  period = 12
+)
+
+local <- matern32_kernel(
+  variance = 0.3,
+  length_scale = 2
+)
+
+combined <- sum_kernel(
+  trend,
+  product_kernel(seasonal, local)
+)
+
+combined
+```
+
+The corresponding covariance matrix is exactly the element-wise algebra:
+
+```{r}
+time <- 0:6
+
+K_combined <- evaluate_kernel(combined, time)
+
+K_manual <-
+  evaluate_kernel(trend, time) +
+  evaluate_kernel(seasonal, time) *
+  evaluate_kernel(local, time)
+
+max(abs(K_combined - K_manual))
+```
+
+# Parameter paths
+
+Composite kernels retain explicit parameter paths:
+
+```{r}
+kernel_parameters(
+  combined,
+  flatten = TRUE
+)
+```
+
+These paths are used directly by the hyperparameter optimizer.
+
+Partial updates preserve the rest of the structure:
+
+```{r}
+updated <- update_kernel_parameters(
+  combined,
+  c("kernel2.kernel1.period" = 24)
+)
+
+kernel_parameters(
+  updated,
+  flatten = TRUE
+)
+```
+
+Kernel composition is therefore both mathematical and operational: the
+expression defining the covariance remains inspectable after fitting.

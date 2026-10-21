@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Gaussian-Process Regression from First Principles</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Gaussian-Process Regression from First
+Principles</h1>
+
+
+
+<div id="model" class="section level1">
+<h1>Model</h1>
+<p>Let</p>
+<p><span class="math display">\[
+f \sim \mathcal{GP}(m,k),
+\]</span></p>
+<p>where <span class="math inline">\(m(x)\)</span> is a mean function
+and <span class="math inline">\(k(x,x&#39;)\)</span> is a positive
+semidefinite covariance kernel.</p>
+<p>For training inputs</p>
+<p><span class="math display">\[
+X = (x_1,\ldots,x_n)^\top
+\]</span></p>
+<p>and observations</p>
+<p><span class="math display">\[
+y_i = f(x_i) + \varepsilon_i,
+\qquad
+\varepsilon_i \sim \mathcal N(0,\sigma_i^2),
+\]</span></p>
+<p>define</p>
+<p><span class="math display">\[
+K_{ff} = K(X,X),
+\qquad
+\Sigma_\varepsilon =
+\operatorname{diag}(\sigma_1^2,\ldots,\sigma_n^2).
+\]</span></p>
+<p>Then</p>
+<p><span class="math display">\[
+y \sim \mathcal N\left(
+m(X),
+K_{ff}+\Sigma_\varepsilon
+\right).
+\]</span></p>
+<p>The package represents the same objects explicitly:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Mathematics</th>
+<th>Package object</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">\(m\)</span></td>
+<td><code>zero_mean()</code>, <code>constant_mean()</code></td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(k\)</span></td>
+<td>kernel specification such as <code>rbf_kernel()</code></td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(K(X,X)\)</span></td>
+<td><code>evaluate_kernel(kernel, X)</code></td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(\Sigma_\varepsilon\)</span></td>
+<td><code>noise_variance</code> in <code>fit_gp()</code></td>
+</tr>
+<tr class="odd">
+<td>fitted conditional model</td>
+<td><code>fit_gp()</code></td>
+</tr>
+</tbody>
+</table>
+<p>A scalar <code>noise_variance</code> gives the usual homoscedastic
+model. A vector gives one known observation variance per training
+point.</p>
+</div>
+<div id="conditioning" class="section level1">
+<h1>Conditioning</h1>
+<p>At prediction inputs <span class="math inline">\(X_*\)</span>,
+define</p>
+<p><span class="math display">\[
+K_{f*} = K(X,X_*),
+\qquad
+K_{**} = K(X_*,X_*).
+\]</span></p>
+<p>Write</p>
+<p><span class="math display">\[
+C = K_{ff}+\Sigma_\varepsilon.
+\]</span></p>
+<p>The posterior latent mean is</p>
+<p><span class="math display">\[
+\mu_* =
+m(X_*) +
+K_{*f}C^{-1}\left(y-m(X)\right),
+\]</span></p>
+<p>and the latent covariance is</p>
+<p><span class="math display">\[
+\Sigma_* =
+K_{**} -
+K_{*f}C^{-1}K_{f*}.
+\]</span></p>
+<p>The implementation never forms <span class="math inline">\(C^{-1}\)</span>. It computes a Cholesky
+factorization</p>
+<p><span class="math display">\[
+C = R^\top R
+\]</span></p>
+<p>and solves triangular systems.</p>
+<p>The stored vector</p>
+<p><span class="math display">\[
+\alpha =
+C^{-1}\left(y-m(X)\right)
+\]</span></p>
+<p>corresponds directly to <code>model$alpha</code>.</p>
+</div>
+<div id="minimal-reproducible-fit" class="section level1">
+<h1>Minimal reproducible fit</h1>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">1.5</span>, <span class="sc">-</span><span class="fl">0.5</span>, <span class="fl">0.5</span>, <span class="fl">1.5</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>y <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">0.9</span>, <span class="sc">-</span><span class="fl">0.1</span>, <span class="fl">0.2</span>, <span class="fl">1.0</span>)</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>kernel <span class="ot">&lt;-</span> <span class="fu">rbf_kernel</span>(</span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a>  <span class="at">variance =</span> <span class="fl">1.2</span>,</span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a>  <span class="at">length_scale =</span> <span class="fl">0.7</span></span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a>)</span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a>model <span class="ot">&lt;-</span> <span class="fu">fit_gp</span>(</span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a>  x,</span>
+<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a>  y,</span>
+<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a>  <span class="at">kernel =</span> kernel,</span>
+<span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a>  <span class="at">noise_variance =</span> <span class="fl">0.05</span></span>
+<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a>)</span>
+<span id="cb1-15"><a href="#cb1-15" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" tabindex="-1"></a>model</span>
+<span id="cb1-17"><a href="#cb1-17" tabindex="-1"></a><span class="co">#&gt; Exact Gaussian-process regression model</span></span>
+<span id="cb1-18"><a href="#cb1-18" tabindex="-1"></a><span class="co">#&gt;   observations: 4</span></span>
+<span id="cb1-19"><a href="#cb1-19" tabindex="-1"></a><span class="co">#&gt;   input dimensions: 1</span></span>
+<span id="cb1-20"><a href="#cb1-20" tabindex="-1"></a><span class="co">#&gt;   mean: ZeroMean()</span></span>
+<span id="cb1-21"><a href="#cb1-21" tabindex="-1"></a><span class="co">#&gt;   noise structure: homoscedastic</span></span>
+<span id="cb1-22"><a href="#cb1-22" tabindex="-1"></a><span class="co">#&gt;   noise variance: 0.05</span></span>
+<span id="cb1-23"><a href="#cb1-23" tabindex="-1"></a><span class="co">#&gt;   numerical jitter: 0</span></span>
+<span id="cb1-24"><a href="#cb1-24" tabindex="-1"></a><span class="co">#&gt;   kernel:</span></span>
+<span id="cb1-25"><a href="#cb1-25" tabindex="-1"></a><span class="co">#&gt;     RBF(variance=1.2, length_scale=0.7)</span></span></code></pre></div>
+<p>The fitted object stores the Cholesky factor <span class="math inline">\(R\)</span> and the vector <span class="math inline">\(\alpha\)</span>. The covariance matrices are not
+stored, because the kernel recomputes them exactly, and <span class="math inline">\(R^\top R\)</span> reproduces <span class="math inline">\(C\)</span> plus any numerical jitter (here
+none):</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>K <span class="ot">&lt;-</span> <span class="fu">evaluate_kernel</span>(model<span class="sc">$</span>kernel, model<span class="sc">$</span>x)</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>C <span class="ot">&lt;-</span> K <span class="sc">+</span> <span class="fu">diag</span>(model<span class="sc">$</span>training_noise_variance)</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>C</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="co">#&gt;              [,1]       [,2]       [,3]         [,4]</span></span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="co">#&gt; [1,] 1.2500000000 0.43253735 0.02025586 0.0001232431</span></span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="co">#&gt; [2,] 0.4325373463 1.25000000 0.43253735 0.0202558610</span></span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="co">#&gt; [3,] 0.0202558610 0.43253735 1.25000000 0.4325373463</span></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a><span class="co">#&gt; [4,] 0.0001232431 0.02025586 0.43253735 1.2500000000</span></span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>model<span class="sc">$</span>cholesky</span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a><span class="co">#&gt;          [,1]      [,2]       [,3]        [,4]</span></span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a><span class="co">#&gt; [1,] 1.118034 0.3868732 0.01811739 0.000110232</span></span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a><span class="co">#&gt; [2,] 0.000000 1.0489658 0.40566454 0.019269662</span></span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a><span class="co">#&gt; [3,] 0.000000 0.0000000 1.04168519 0.407722346</span></span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a><span class="co">#&gt; [4,] 0.000000 0.0000000 0.00000000 1.040860777</span></span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a><span class="fu">all.equal</span>(<span class="fu">crossprod</span>(model<span class="sc">$</span>cholesky), C <span class="sc">+</span> <span class="fu">diag</span>(model<span class="sc">$</span>jitter, <span class="fu">nrow</span>(C)))</span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a><span class="co">#&gt; [1] TRUE</span></span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a>model<span class="sc">$</span>alpha</span>
+<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a><span class="co">#&gt; [1]  0.854689487 -0.389576989  0.002244874  0.805451913</span></span></code></pre></div>
+<p><code>?gaussianprocesses_model</code> describes every field of a
+fitted model, how models are versioned, and how to save them.</p>
+</div>
+<div id="posterior-prediction" class="section level1">
+<h1>Posterior prediction</h1>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>x_new <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="sc">-</span><span class="dv">2</span>, <span class="dv">2</span>, <span class="at">length.out =</span> <span class="dv">80</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>prediction <span class="ot">&lt;-</span> <span class="fu">predict_gp</span>(</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  model,</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>  x_new,</span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>  <span class="at">interval_level =</span> <span class="fl">0.95</span></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>)</span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="fu">head</span>(</span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a>  <span class="fu">data.frame</span>(</span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a>    <span class="at">x =</span> x_new,</span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a>    <span class="at">mean =</span> prediction<span class="sc">$</span>mean,</span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a>    <span class="at">latent_sd =</span> prediction<span class="sc">$</span>latent_sd,</span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a>    <span class="at">observation_sd =</span> prediction<span class="sc">$</span>observation_sd</span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a>  )</span>
+<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a>)</span>
+<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a><span class="co">#&gt;           x      mean latent_sd observation_sd</span></span>
+<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a><span class="co">#&gt; 1 -2.000000 0.7476407 0.6836559      0.7192950</span></span>
+<span id="cb3-19"><a href="#cb3-19" tabindex="-1"></a><span class="co">#&gt; 2 -1.949367 0.7798487 0.6305943      0.6690659</span></span>
+<span id="cb3-20"><a href="#cb3-20" tabindex="-1"></a><span class="co">#&gt; 3 -1.898734 0.8085496 0.5750144      0.6169615</span></span>
+<span id="cb3-21"><a href="#cb3-21" tabindex="-1"></a><span class="co">#&gt; 4 -1.848101 0.8331786 0.5176677      0.5638970</span></span>
+<span id="cb3-22"><a href="#cb3-22" tabindex="-1"></a><span class="co">#&gt; 5 -1.797468 0.8532069 0.4595633      0.5110758</span></span>
+<span id="cb3-23"><a href="#cb3-23" tabindex="-1"></a><span class="co">#&gt; 6 -1.746835 0.8681562 0.4020650      0.4600611</span></span></code></pre></div>
+<p>The package reports two uncertainty layers.</p>
+<p>The latent variance is</p>
+<p><span class="math display">\[
+\operatorname{Var}\left[f(x_*)\mid y\right].
+\]</span></p>
+<p>The observation variance is</p>
+<p><span class="math display">\[
+\operatorname{Var}\left[y_*\mid y\right]
+=
+\operatorname{Var}\left[f(x_*)\mid y\right]
++
+\sigma_*^2.
+\]</span></p>
+<p>They are deliberately not conflated.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="fu">plot</span>(</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>  x_new,</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  prediction<span class="sc">$</span>mean,</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  <span class="at">type =</span> <span class="st">&quot;l&quot;</span>,</span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>  <span class="at">xlab =</span> <span class="st">&quot;x&quot;</span>,</span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>  <span class="at">ylab =</span> <span class="st">&quot;response&quot;</span>,</span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a>  <span class="at">ylim =</span> <span class="fu">range</span>(prediction<span class="sc">$</span>prediction_interval)</span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a>)</span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a><span class="fu">polygon</span>(</span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a>  <span class="fu">c</span>(x_new, <span class="fu">rev</span>(x_new)),</span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a>  <span class="fu">c</span>(</span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a>    prediction<span class="sc">$</span>prediction_interval[, <span class="st">&quot;lower&quot;</span>],</span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a>    <span class="fu">rev</span>(prediction<span class="sc">$</span>prediction_interval[, <span class="st">&quot;upper&quot;</span>])</span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a>  ),</span>
+<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a>  <span class="at">border =</span> <span class="cn">NA</span>,</span>
+<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a>  <span class="at">density =</span> <span class="dv">15</span></span>
+<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a>)</span>
+<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a><span class="fu">lines</span>(x_new, prediction<span class="sc">$</span>mean)</span>
+<span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a><span class="fu">points</span>(x, y)</span></code></pre></div>
+<p><img role="img" aria-label="Posterior mean of the fitted Gaussian process for x from -2 to 2, with a hatched 95% prediction band and the four training observations as points." src="data:image/png;base64,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" alt="Posterior mean of the fitted Gaussian process for x from -2 to 2, with a hatched 95% prediction band and the four training observations as points." /></p>
+</div>
+<div id="function-draws" class="section level1">
+<h1>Function draws</h1>
+<p>A mean and an interval summarize each input separately. Draws show
+whole functions, including how values at nearby inputs move
+together.</p>
+<p>A draw from <span class="math inline">\(\mathcal N(\mu,
+\Sigma)\)</span> is</p>
+<p><span class="math display">\[
+f = \mu + R^\top z,
+\qquad
+\Sigma = R^\top R,
+\qquad
+z \sim \mathcal N(0, I),
+\]</span></p>
+<p>where <span class="math inline">\(R\)</span> is the Cholesky factor
+of the covariance. No inverse is needed. For the prior, <span class="math inline">\(\mu = m(X_*)\)</span> and <span class="math inline">\(\Sigma = K_{**}\)</span>. For the latent
+posterior, <span class="math inline">\(\mu\)</span> and <span class="math inline">\(\Sigma\)</span> are the posterior mean and
+covariance from <code>predict_gp()</code>. Closely spaced inputs make
+<span class="math inline">\(\Sigma\)</span> numerically singular, so the
+factorization uses the package’s jitter policy and reports the
+jitter.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>prior_draws <span class="ot">&lt;-</span> <span class="fu">sample_gp_prior</span>(x_new, kernel, <span class="at">n_draws =</span> <span class="dv">5</span>, <span class="at">seed =</span> <span class="dv">1</span>)</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>posterior_draws <span class="ot">&lt;-</span> <span class="fu">sample_gp_posterior</span>(model, x_new, <span class="at">n_draws =</span> <span class="dv">5</span>, <span class="at">seed =</span> <span class="dv">1</span>)</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>old_par <span class="ot">&lt;-</span> <span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>), <span class="at">mar =</span> <span class="fu">c</span>(<span class="dv">4</span>, <span class="dv">4</span>, <span class="dv">2</span>, <span class="dv">1</span>))</span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="fu">matplot</span>(</span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a>  x_new, prior_draws<span class="sc">$</span>latent,</span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a>  <span class="at">type =</span> <span class="st">&quot;l&quot;</span>, <span class="at">lty =</span> <span class="dv">1</span>, <span class="at">col =</span> <span class="st">&quot;grey40&quot;</span>,</span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a>  <span class="at">xlab =</span> <span class="st">&quot;x&quot;</span>, <span class="at">ylab =</span> <span class="st">&quot;f(x)&quot;</span>, <span class="at">main =</span> <span class="st">&quot;Prior draws&quot;</span></span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a>)</span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a><span class="fu">matplot</span>(</span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a>  x_new, posterior_draws<span class="sc">$</span>latent,</span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a>  <span class="at">type =</span> <span class="st">&quot;l&quot;</span>, <span class="at">lty =</span> <span class="dv">1</span>, <span class="at">col =</span> <span class="st">&quot;grey40&quot;</span>,</span>
+<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a>  <span class="at">xlab =</span> <span class="st">&quot;x&quot;</span>, <span class="at">ylab =</span> <span class="st">&quot;f(x)&quot;</span>, <span class="at">main =</span> <span class="st">&quot;Posterior draws&quot;</span></span>
+<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a>)</span>
+<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a><span class="fu">points</span>(x, y, <span class="at">pch =</span> <span class="dv">19</span>)</span></code></pre></div>
+<p><img role="img" aria-label="Two panels. Left: five smooth prior function draws spread around zero across x from -2 to 2. Right: five posterior function draws that pass close to the four training observations and fan out between and beyond them." src="data:image/png;base64,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" alt="Two panels. Left: five smooth prior function draws spread around zero across x from -2 to 2. Right: five posterior function draws that pass close to the four training observations and fan out between and beyond them." /></p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="fu">par</span>(old_par)</span></code></pre></div>
+<p>The posterior draws agree near the observations and spread apart away
+from them, which is what the pointwise intervals summarize.</p>
+<p>The 80 closely spaced inputs make both covariance matrices
+numerically singular, so both factorizations needed a small jitter:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">c</span>(<span class="at">prior =</span> prior_draws<span class="sc">$</span>jitter, <span class="at">posterior =</span> posterior_draws<span class="sc">$</span>jitter)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="co">#&gt;        prior    posterior </span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="co">#&gt; 1.200000e-10 1.281765e-11</span></span></code></pre></div>
+<p>Latent draws are values of the function <span class="math inline">\(f\)</span>. A future observation also includes
+noise, <span class="math inline">\(y_* = f_* + \varepsilon_*\)</span>.
+With <code>type = &quot;observation&quot;</code>, each noisy draw is generated
+from a latent draw plus independent noise, and both are returned:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>noisy <span class="ot">&lt;-</span> <span class="fu">sample_gp_posterior</span>(</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>  model,</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>  x_new,</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>  <span class="at">n_draws =</span> <span class="dv">1</span>,</span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>  <span class="at">type =</span> <span class="st">&quot;observation&quot;</span>,</span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">2</span></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>)</span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a></span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a><span class="fu">plot</span>(</span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a>  x_new, noisy<span class="sc">$</span>observation[, <span class="dv">1</span>],</span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a>  <span class="at">pch =</span> <span class="dv">20</span>, <span class="at">cex =</span> <span class="fl">0.6</span>, <span class="at">col =</span> <span class="st">&quot;grey50&quot;</span>,</span>
+<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a>  <span class="at">xlab =</span> <span class="st">&quot;x&quot;</span>, <span class="at">ylab =</span> <span class="st">&quot;response&quot;</span></span>
+<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a>)</span>
+<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a><span class="fu">lines</span>(x_new, noisy<span class="sc">$</span>latent[, <span class="dv">1</span>])</span>
+<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a><span class="fu">points</span>(x, y, <span class="at">pch =</span> <span class="dv">19</span>)</span></code></pre></div>
+<p><img role="img" aria-label="One latent posterior function draw as a line, with the corresponding noisy observation draws as small points scattered around it, and the training observations as larger points." src="data:image/png;base64,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" alt="One latent posterior function draw as a line, with the corresponding noisy observation draws as small points scattered around it, and the training observations as larger points." /></p>
+<p>Over many draws, the latent draws reproduce the posterior covariance
+and the observation draws reproduce that covariance plus the noise
+variance:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>many <span class="ot">&lt;-</span> <span class="fu">sample_gp_posterior</span>(</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>  model,</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>  <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="fl">0.5</span>),</span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>  <span class="at">n_draws =</span> <span class="dv">5000</span>,</span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>  <span class="at">type =</span> <span class="st">&quot;observation&quot;</span>,</span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">3</span></span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a>)</span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a></span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a><span class="fu">round</span>(</span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a>  <span class="fu">rbind</span>(</span>
+<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a>    <span class="at">latent_sample =</span> <span class="fu">apply</span>(many<span class="sc">$</span>latent, <span class="dv">1</span>, var),</span>
+<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a>    <span class="at">latent_theory =</span> <span class="fu">diag</span>(many<span class="sc">$</span>latent_covariance),</span>
+<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a>    <span class="at">observation_sample =</span> <span class="fu">apply</span>(many<span class="sc">$</span>observation, <span class="dv">1</span>, var),</span>
+<span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a>    <span class="at">observation_theory =</span> <span class="fu">diag</span>(many<span class="sc">$</span>latent_covariance) <span class="sc">+</span></span>
+<span id="cb9-15"><a href="#cb9-15" tabindex="-1"></a>      many<span class="sc">$</span>observation_noise_variance</span>
+<span id="cb9-16"><a href="#cb9-16" tabindex="-1"></a>  ),</span>
+<span id="cb9-17"><a href="#cb9-17" tabindex="-1"></a>  <span class="dv">4</span></span>
+<span id="cb9-18"><a href="#cb9-18" tabindex="-1"></a>)</span>
+<span id="cb9-19"><a href="#cb9-19" tabindex="-1"></a><span class="co">#&gt;                      [,1]   [,2]</span></span>
+<span id="cb9-20"><a href="#cb9-20" tabindex="-1"></a><span class="co">#&gt; latent_sample      0.1578 0.0471</span></span>
+<span id="cb9-21"><a href="#cb9-21" tabindex="-1"></a><span class="co">#&gt; latent_theory      0.1553 0.0473</span></span>
+<span id="cb9-22"><a href="#cb9-22" tabindex="-1"></a><span class="co">#&gt; observation_sample 0.2085 0.0978</span></span>
+<span id="cb9-23"><a href="#cb9-23" tabindex="-1"></a><span class="co">#&gt; observation_theory 0.2053 0.0973</span></span></code></pre></div>
+</div>
+<div id="known-heteroscedastic-observation-variance" class="section level1">
+<h1>Known heteroscedastic observation variance</h1>
+<p>Exact conditioning also supports a known diagonal observation
+covariance:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>known_noise <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">0.02</span>, <span class="fl">0.04</span>, <span class="fl">0.08</span>, <span class="fl">0.16</span>)</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a></span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>heterogeneous_fit <span class="ot">&lt;-</span> <span class="fu">fit_gp</span>(</span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>  x,</span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>  y,</span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a>  <span class="at">kernel =</span> kernel,</span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a>  <span class="at">noise_variance =</span> known_noise</span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a>)</span>
+<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a></span>
+<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a>heterogeneous_fit<span class="sc">$</span>training_noise_variance</span>
+<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a><span class="co">#&gt; [1] 0.02 0.04 0.08 0.16</span></span></code></pre></div>
+<p>For unknown input-dependent noise, see the package’s heteroscedastic
+GP approximation. The exact model above is still the underlying
+conditioning mechanism once a diagonal noise estimate has been
+supplied.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

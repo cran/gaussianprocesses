@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Marginal Likelihood, Prediction, and Uncertainty</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Marginal Likelihood, Prediction, and
+Uncertainty</h1>
+
+
+
+<div id="marginal-likelihood" class="section level1">
+<h1>Marginal likelihood</h1>
+<p>For centered observations</p>
+<p><span class="math display">\[
+\tilde y = y-m(X)
+\]</span></p>
+<p>and observation covariance</p>
+<p><span class="math display">\[
+C=K(X,X)+\Sigma_\varepsilon,
+\]</span></p>
+<p>the log marginal likelihood is</p>
+<p><span class="math display">\[
+\log p(y\mid X,\theta)
+=
+-\frac{1}{2}\tilde y^\top C^{-1}\tilde y
+-\frac{1}{2}\log |C|
+-\frac{n}{2}\log(2\pi).
+\]</span></p>
+<p>If</p>
+<p><span class="math display">\[
+C=R^\top R,
+\]</span></p>
+<p>then</p>
+<p><span class="math display">\[
+\log|C|
+=
+2\sum_{i=1}^n\log R_{ii}.
+\]</span></p>
+<p>The implementation uses exactly this form:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="sc">-</span><span class="fl">1.5</span>, <span class="fl">1.5</span>, <span class="at">length.out =</span> <span class="dv">12</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>y <span class="ot">&lt;-</span> <span class="fu">sin</span>(<span class="dv">2</span> <span class="sc">*</span> x) <span class="sc">+</span> <span class="fl">0.1</span> <span class="sc">*</span> x</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>initial_kernel <span class="ot">&lt;-</span> <span class="fu">rbf_kernel</span>(</span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a>  <span class="at">variance =</span> <span class="fl">0.5</span>,</span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a>  <span class="at">length_scale =</span> <span class="fl">1.5</span></span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a>)</span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a>initial_model <span class="ot">&lt;-</span> <span class="fu">fit_gp</span>(</span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a>  x,</span>
+<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a>  y,</span>
+<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a>  <span class="at">kernel =</span> initial_kernel,</span>
+<span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a>  <span class="at">noise_variance =</span> <span class="fl">0.05</span></span>
+<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a>)</span>
+<span id="cb1-15"><a href="#cb1-15" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" tabindex="-1"></a><span class="fu">log_marginal_likelihood</span>(initial_model)</span>
+<span id="cb1-17"><a href="#cb1-17" tabindex="-1"></a><span class="co">#&gt; [1] -12.87926</span></span></code></pre></div>
+</div>
+<div id="hyperparameter-estimation" class="section level1">
+<h1>Hyperparameter estimation</h1>
+<p>Positive kernel parameters are optimized in log space.</p>
+<p>If <span class="math inline">\(\theta_j&gt;0\)</span>, define</p>
+<p><span class="math display">\[
+\eta_j = \log\theta_j.
+\]</span></p>
+<p>Optimization then proceeds over unconstrained or bounded <span class="math inline">\(\eta_j\)</span>, while the kernel continues to
+store parameters on their natural scale. L-BFGS-B uses the exact
+gradient from <code>log_marginal_likelihood_gradient()</code>, derived
+in the vignette on hyperparameter derivatives.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>optimized <span class="ot">&lt;-</span> <span class="fu">optimize_gp</span>(</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>  x,</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>  y,</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  <span class="at">kernel =</span> initial_kernel,</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>  <span class="at">noise_variance =</span> <span class="fl">0.05</span>,</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>  <span class="at">optimize_noise =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>  <span class="at">n_starts =</span> <span class="dv">2</span>,</span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>  <span class="at">control =</span> <span class="fu">list</span>(<span class="at">maxit =</span> <span class="dv">30</span>)</span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>)</span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a><span class="fu">kernel_parameters</span>(</span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a>  optimized<span class="sc">$</span>kernel,</span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a>  <span class="at">flatten =</span> <span class="cn">TRUE</span></span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a>)</span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a><span class="co">#&gt;     variance length_scale </span></span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a><span class="co">#&gt;     3.537877     1.296364</span></span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a>optimized<span class="sc">$</span>noise_variance</span>
+<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a><span class="co">#&gt; [1] 1e-08</span></span>
+<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a>optimized<span class="sc">$</span>optimization<span class="sc">$</span>log_marginal_likelihood</span>
+<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a><span class="co">#&gt; [1] 32.8508</span></span></code></pre></div>
+<p>The optimizer retains diagnostics rather than returning only a
+parameter vector:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>optimized<span class="sc">$</span>optimization[<span class="fu">c</span>(</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>  <span class="st">&quot;method&quot;</span>,</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>  <span class="st">&quot;converged&quot;</span>,</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  <span class="st">&quot;best_start&quot;</span>,</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>  <span class="st">&quot;counts&quot;</span></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>)]</span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="co">#&gt; $method</span></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="co">#&gt; [1] &quot;L-BFGS-B&quot;</span></span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="co">#&gt; $converged</span></span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a><span class="co">#&gt; [1] TRUE</span></span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a><span class="co">#&gt; $best_start</span></span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a><span class="co">#&gt; [1] 1</span></span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a><span class="co">#&gt; $counts</span></span>
+<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a><span class="co">#&gt; function gradient </span></span>
+<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a><span class="co">#&gt;       40       40</span></span></code></pre></div>
+</div>
+<div id="posterior-uncertainty" class="section level1">
+<h1>Posterior uncertainty</h1>
+<p>For a test point <span class="math inline">\(x_*\)</span>,</p>
+<p><span class="math display">\[
+\operatorname{Var}[f_*\mid y]
+=
+k(x_*,x_*)
+-
+k_{*f}C^{-1}k_{f*}.
+\]</span></p>
+<p>This is latent-function uncertainty.</p>
+<p>For a future noisy observation,</p>
+<p><span class="math display">\[
+\operatorname{Var}[y_*\mid y]
+=
+\operatorname{Var}[f_*\mid y]
++
+\sigma_*^2.
+\]</span></p>
+<p>The package reports both:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>x_new <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="sc">-</span><span class="dv">2</span>, <span class="dv">2</span>, <span class="at">length.out =</span> <span class="dv">25</span>)</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>prediction <span class="ot">&lt;-</span> <span class="fu">predict_gp</span>(</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  optimized,</span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>  x_new,</span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>  <span class="at">interval_level =</span> <span class="fl">0.9</span></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a>)</span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a><span class="fu">head</span>(</span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a>  <span class="fu">data.frame</span>(</span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a>    <span class="at">x =</span> x_new,</span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a>    <span class="at">mean =</span> prediction<span class="sc">$</span>mean,</span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a>    <span class="at">latent_variance =</span> prediction<span class="sc">$</span>latent_variance,</span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a>    <span class="at">observation_variance =</span> prediction<span class="sc">$</span>observation_variance</span>
+<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a>  )</span>
+<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a>)</span>
+<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a><span class="co">#&gt;           x        mean latent_variance observation_variance</span></span>
+<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a><span class="co">#&gt; 1 -2.000000  0.57084691    1.673440e-04         1.673540e-04</span></span>
+<span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a><span class="co">#&gt; 2 -1.833333  0.32278647    2.177732e-05         2.178732e-05</span></span>
+<span id="cb4-20"><a href="#cb4-20" tabindex="-1"></a><span class="co">#&gt; 3 -1.666667  0.02497703    1.294231e-06         1.304231e-06</span></span>
+<span id="cb4-21"><a href="#cb4-21" tabindex="-1"></a><span class="co">#&gt; 4 -1.500000 -0.29111734    9.989471e-09         1.998947e-08</span></span>
+<span id="cb4-22"><a href="#cb4-22" tabindex="-1"></a><span class="co">#&gt; 5 -1.333333 -0.59068236    1.888929e-08         2.888929e-08</span></span>
+<span id="cb4-23"><a href="#cb4-23" tabindex="-1"></a><span class="co">#&gt; 6 -1.166667 -0.83973602    7.398808e-09         1.739881e-08</span></span></code></pre></div>
+</div>
+<div id="exact-leave-one-out-diagnostics" class="section level1">
+<h1>Exact leave-one-out diagnostics</h1>
+<p>Let</p>
+<p><span class="math display">\[
+Q=C^{-1}
+\]</span></p>
+<p>and</p>
+<p><span class="math display">\[
+\alpha=Q\tilde y.
+\]</span></p>
+<p>The exact leave-one-out predictive distribution can be recovered
+without refitting <span class="math inline">\(n\)</span> models:</p>
+<p><span class="math display">\[
+\mu_{-i}
+=
+y_i - \frac{\alpha_i}{Q_{ii}},
+\]</span></p>
+<p><span class="math display">\[
+\sigma_{-i}^2
+=
+\frac{1}{Q_{ii}}.
+\]</span></p>
+<p>That is the basis of <code>loo_gp()</code>:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>loo <span class="ot">&lt;-</span> <span class="fu">loo_gp</span>(optimized)</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="fu">head</span>(loo)</span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="co">#&gt;   observation   observed       mean     variance           sd      residual</span></span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="co">#&gt; 1           1 -0.2911200 -0.2885901 9.496939e-06 0.0030817103 -2.529901e-03</span></span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="co">#&gt; 2           2 -0.7569843 -0.7573858 3.104250e-07 0.0005571580  4.014653e-04</span></span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="co">#&gt; 3           3 -1.0387766 -1.0386418 5.170402e-08 0.0002273852 -1.347958e-04</span></span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a><span class="co">#&gt; 4           4 -1.0468008 -1.0468658 2.568645e-08 0.0001602699  6.502633e-05</span></span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a><span class="co">#&gt; 5           5 -0.7708133 -0.7708020 2.523355e-08 0.0001588507 -1.132988e-05</span></span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a><span class="co">#&gt; 6           6 -0.2829953 -0.2829533 2.366398e-08 0.0001538310 -4.197309e-05</span></span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a><span class="co">#&gt;   standardized_residual       pit      lower      upper covered</span></span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a><span class="co">#&gt; 1           -0.82094050 0.2058401 -0.2946301 -0.2825501    TRUE</span></span>
+<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a><span class="co">#&gt; 2            0.72055914 0.7644096 -0.7584778 -0.7562938    TRUE</span></span>
+<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a><span class="co">#&gt; 3           -0.59280823 0.2766548 -1.0390874 -1.0381961    TRUE</span></span>
+<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a><span class="co">#&gt; 4            0.40573013 0.6575296 -1.0471800 -1.0465517    TRUE</span></span>
+<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a><span class="co">#&gt; 5           -0.07132406 0.4715699 -0.7711133 -0.7704906    TRUE</span></span>
+<span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a><span class="co">#&gt; 6           -0.27285195 0.3924835 -0.2832548 -0.2826518    TRUE</span></span>
+<span id="cb5-18"><a href="#cb5-18" tabindex="-1"></a><span class="co">#&gt;   log_predictive_density</span></span>
+<span id="cb5-19"><a href="#cb5-19" tabindex="-1"></a><span class="co">#&gt; 1               4.526360</span></span>
+<span id="cb5-20"><a href="#cb5-20" tabindex="-1"></a><span class="co">#&gt; 2               6.314121</span></span>
+<span id="cb5-21"><a href="#cb5-21" tabindex="-1"></a><span class="co">#&gt; 3               7.294216</span></span>
+<span id="cb5-22"><a href="#cb5-22" tabindex="-1"></a><span class="co">#&gt; 4               7.737404</span></span>
+<span id="cb5-23"><a href="#cb5-23" tabindex="-1"></a><span class="co">#&gt; 5               7.826064</span></span>
+<span id="cb5-24"><a href="#cb5-24" tabindex="-1"></a><span class="co">#&gt; 6               7.823493</span></span></code></pre></div>
+<p>Calibration summaries are descriptive rather than binary tests:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="fu">gp_calibration_diagnostics</span>(</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>  optimized,</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>  <span class="at">interval_level =</span> <span class="fl">0.9</span></span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>)</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="co">#&gt; $interval_level</span></span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="co">#&gt; [1] 0.9</span></span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a><span class="co">#&gt; $empirical_coverage</span></span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="co">#&gt; [1] 1</span></span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a><span class="co">#&gt; $coverage_error</span></span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a><span class="co">#&gt; [1] 0.1</span></span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a><span class="co">#&gt; $mean_standardized_residual</span></span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a><span class="co">#&gt; [1] 1.137817e-10</span></span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a><span class="co">#&gt; $sd_standardized_residual</span></span>
+<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a><span class="co">#&gt; [1] 0.5702826</span></span>
+<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-20"><a href="#cb6-20" tabindex="-1"></a><span class="co">#&gt; $mean_absolute_standardized_residual</span></span>
+<span id="cb6-21"><a href="#cb6-21" tabindex="-1"></a><span class="co">#&gt; [1] 0.4807023</span></span>
+<span id="cb6-22"><a href="#cb6-22" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-23"><a href="#cb6-23" tabindex="-1"></a><span class="co">#&gt; $pit_mean</span></span>
+<span id="cb6-24"><a href="#cb6-24" tabindex="-1"></a><span class="co">#&gt; [1] 0.5</span></span>
+<span id="cb6-25"><a href="#cb6-25" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-26"><a href="#cb6-26" tabindex="-1"></a><span class="co">#&gt; $pit_variance</span></span>
+<span id="cb6-27"><a href="#cb6-27" tabindex="-1"></a><span class="co">#&gt; [1] 0.0442744</span></span>
+<span id="cb6-28"><a href="#cb6-28" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-29"><a href="#cb6-29" tabindex="-1"></a><span class="co">#&gt; $mean_log_predictive_density</span></span>
+<span id="cb6-30"><a href="#cb6-30" tabindex="-1"></a><span class="co">#&gt; [1] 6.920276</span></span></code></pre></div>
+<p>The same separation applies throughout the package: predictive
+calibration, model structure, and numerical conditioning are related,
+but they are not the same object.</p>
+</div>
+<div id="universal-kriging" class="section level1">
+<h1>Universal kriging</h1>
+<p>A zero or fixed mean says that, far from the data, the function
+returns to a known level. Often the data follow a trend instead.
+Universal kriging writes the mean as a regression on known basis
+functions,</p>
+<p><span class="math display">\[
+f(x) = h(x)^\top \beta + g(x),
+\qquad
+g \sim \mathcal{GP}(0, k),
+\]</span></p>
+<p>with <span class="math inline">\(H\)</span> the matrix whose rows are
+<span class="math inline">\(h(x_i)^\top\)</span>.
+<code>linear_mean()</code>, <code>polynomial_mean()</code>, and
+<code>basis_mean()</code> define <span class="math inline">\(h\)</span>.
+The coefficients <span class="math inline">\(\beta\)</span> can be
+treated in three ways, and the choice changes both the hyperparameter
+estimates and the predictive uncertainty.</p>
+<p><strong>Estimated.</strong> For given hyperparameters, the
+generalized least-squares estimate</p>
+<p><span class="math display">\[
+\hat\beta = (H^\top C^{-1} H)^{-1} H^\top C^{-1} y
+\]</span></p>
+<p>maximizes the likelihood. Substituting it gives the <em>profile</em>
+likelihood (<code>estimate_coefficients(&quot;ml&quot;)</code>, the default). The
+profile likelihood ignores that <span class="math inline">\(p\)</span>
+degrees of freedom went into <span class="math inline">\(\hat\beta\)</span>, so, as with the
+maximum-likelihood variance of a linear regression, it underestimates
+variances. The <em>restricted</em> likelihood
+(<code>estimate_coefficients(&quot;reml&quot;)</code>) is the likelihood of the
+residuals after projecting out the trend:</p>
+<p><span class="math display">\[
+\ell_R = -\tfrac12 y^\top P y - \tfrac12 \log|C|
+- \tfrac12 \log|H^\top C^{-1} H| - \tfrac{n - p}{2} \log 2\pi,
+\qquad
+P = C^{-1} - C^{-1} H (H^\top C^{-1} H)^{-1} H^\top C^{-1}.
+\]</span></p>
+<p>Predictions plug in <span class="math inline">\(\hat\beta\)</span> as
+if it were known.</p>
+<p><strong>Marginalized.</strong> A Gaussian prior <span class="math inline">\(\beta \sim N(b, B)\)</span>
+(<code>coefficient_prior(b, B)</code>) makes the model a Gaussian
+process with mean <span class="math inline">\(h(x)^\top b\)</span> and
+covariance <span class="math inline">\(k(x, x&#39;) + h(x)^\top B
+h(x&#39;)\)</span>. Its predictive covariance adds the uncertainty of
+<span class="math inline">\(\beta\)</span>,</p>
+<p><span class="math display">\[
+R_* (B^{-1} + H^\top C^{-1} H)^{-1} R_*^\top,
+\qquad
+R_* = H_* - K_{*X} C^{-1} H,
+\]</span></p>
+<p>which grows where the prediction relies on the trend: away from the
+data. <code>coefficient_prior()</code> without a covariance takes the
+vague limit <span class="math inline">\(B^{-1} \to 0\)</span>. Its
+predictive mean is the plug-in mean with <span class="math inline">\(\hat\beta\)</span>, and its likelihood is the
+restricted likelihood.</p>
+<p><strong>Fixed.</strong> A numeric vector,
+<code>linear_mean(c(2, 0.8))</code>, fixes <span class="math inline">\(\beta\)</span>.</p>
+<p>The implementation never forms <span class="math inline">\((H^\top
+C^{-1} H)^{-1}\)</span>. It solves the generalized least-squares problem
+with the QR decomposition of the whitened basis <span class="math inline">\(R^{-\top} H\)</span>, where <span class="math inline">\(C = R^\top R\)</span>, and a basis whose
+coefficients are not identified raises an error of class
+<code>gaussianprocesses_rank_deficiency_error</code>.</p>
+<p>Simulate a linear trend with a smooth deviation, observed on <span class="math inline">\([0, 10]\)</span>:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">26</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>x_trend <span class="ot">&lt;-</span> <span class="fu">sort</span>(<span class="fu">runif</span>(<span class="dv">30</span>, <span class="dv">0</span>, <span class="dv">10</span>))</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>truth <span class="ot">&lt;-</span> <span class="cf">function</span>(x) <span class="dv">2</span> <span class="sc">+</span> <span class="fl">0.8</span> <span class="sc">*</span> x <span class="sc">+</span> <span class="fu">sin</span>(<span class="fl">1.3</span> <span class="sc">*</span> x)</span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>y_trend <span class="ot">&lt;-</span> <span class="fu">truth</span>(x_trend) <span class="sc">+</span> <span class="fu">rnorm</span>(<span class="dv">30</span>, <span class="at">sd =</span> <span class="fl">0.2</span>)</span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>fit_with_mean <span class="ot">&lt;-</span> <span class="cf">function</span>(mean) {</span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>  <span class="fu">optimize_gp</span>(</span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>    x_trend,</span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>    y_trend,</span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a>    <span class="at">kernel =</span> <span class="fu">rbf_kernel</span>(<span class="at">variance =</span> <span class="dv">1</span>, <span class="at">length_scale =</span> <span class="dv">1</span>),</span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a>    <span class="at">noise_variance =</span> <span class="fl">0.05</span>,</span>
+<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a>    <span class="at">mean =</span> mean</span>
+<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a>  )</span>
+<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a>}</span>
+<span id="cb7-15"><a href="#cb7-15" tabindex="-1"></a></span>
+<span id="cb7-16"><a href="#cb7-16" tabindex="-1"></a>trend_models <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb7-17"><a href="#cb7-17" tabindex="-1"></a>  <span class="st">&quot;zero mean&quot;</span> <span class="ot">=</span> <span class="fu">fit_with_mean</span>(<span class="fu">zero_mean</span>()),</span>
+<span id="cb7-18"><a href="#cb7-18" tabindex="-1"></a>  <span class="st">&quot;estimated, ML&quot;</span> <span class="ot">=</span> <span class="fu">fit_with_mean</span>(<span class="fu">linear_mean</span>()),</span>
+<span id="cb7-19"><a href="#cb7-19" tabindex="-1"></a>  <span class="st">&quot;estimated, REML&quot;</span> <span class="ot">=</span> <span class="fu">fit_with_mean</span>(</span>
+<span id="cb7-20"><a href="#cb7-20" tabindex="-1"></a>    <span class="fu">linear_mean</span>(<span class="fu">estimate_coefficients</span>(<span class="st">&quot;reml&quot;</span>))</span>
+<span id="cb7-21"><a href="#cb7-21" tabindex="-1"></a>  ),</span>
+<span id="cb7-22"><a href="#cb7-22" tabindex="-1"></a>  <span class="st">&quot;vague prior&quot;</span> <span class="ot">=</span> <span class="fu">fit_with_mean</span>(<span class="fu">linear_mean</span>(<span class="fu">coefficient_prior</span>()))</span>
+<span id="cb7-23"><a href="#cb7-23" tabindex="-1"></a>)</span>
+<span id="cb7-24"><a href="#cb7-24" tabindex="-1"></a></span>
+<span id="cb7-25"><a href="#cb7-25" tabindex="-1"></a><span class="fu">data.frame</span>(</span>
+<span id="cb7-26"><a href="#cb7-26" tabindex="-1"></a>  <span class="at">likelihood =</span> <span class="fu">sapply</span>(trend_models, <span class="cf">function</span>(model) {</span>
+<span id="cb7-27"><a href="#cb7-27" tabindex="-1"></a>    model<span class="sc">$</span>optimization<span class="sc">$</span>likelihood</span>
+<span id="cb7-28"><a href="#cb7-28" tabindex="-1"></a>  }),</span>
+<span id="cb7-29"><a href="#cb7-29" tabindex="-1"></a>  <span class="at">variance =</span> <span class="fu">sapply</span>(trend_models, <span class="cf">function</span>(model) {</span>
+<span id="cb7-30"><a href="#cb7-30" tabindex="-1"></a>    model<span class="sc">$</span>kernel<span class="sc">$</span>parameters<span class="sc">$</span>variance</span>
+<span id="cb7-31"><a href="#cb7-31" tabindex="-1"></a>  }),</span>
+<span id="cb7-32"><a href="#cb7-32" tabindex="-1"></a>  <span class="at">length_scale =</span> <span class="fu">sapply</span>(trend_models, <span class="cf">function</span>(model) {</span>
+<span id="cb7-33"><a href="#cb7-33" tabindex="-1"></a>    model<span class="sc">$</span>kernel<span class="sc">$</span>parameters<span class="sc">$</span>length_scale</span>
+<span id="cb7-34"><a href="#cb7-34" tabindex="-1"></a>  })</span>
+<span id="cb7-35"><a href="#cb7-35" tabindex="-1"></a>)</span>
+<span id="cb7-36"><a href="#cb7-36" tabindex="-1"></a><span class="co">#&gt;                 likelihood   variance length_scale</span></span>
+<span id="cb7-37"><a href="#cb7-37" tabindex="-1"></a><span class="co">#&gt; zero mean         marginal 35.8387279    2.3087250</span></span>
+<span id="cb7-38"><a href="#cb7-38" tabindex="-1"></a><span class="co">#&gt; estimated, ML      profile  0.3926470    0.8395031</span></span>
+<span id="cb7-39"><a href="#cb7-39" tabindex="-1"></a><span class="co">#&gt; estimated, REML restricted  0.5695221    0.9090621</span></span>
+<span id="cb7-40"><a href="#cb7-40" tabindex="-1"></a><span class="co">#&gt; vague prior     restricted  0.5695221    0.9090621</span></span></code></pre></div>
+<p>Without a trend, the kernel has to explain it: the variance and
+length scale are large. REML estimates a larger kernel variance than the
+profile likelihood. The vague prior maximizes the same restricted
+likelihood, so it reaches the same estimates.</p>
+<p><code>coef()</code> and <code>vcov()</code> give the coefficients and
+their covariance for given hyperparameters:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>estimated <span class="ot">&lt;-</span> trend_models[[<span class="st">&quot;estimated, REML&quot;</span>]]</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="fu">cbind</span>(</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>  <span class="at">estimate =</span> <span class="fu">coef</span>(estimated),</span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>  <span class="at">standard_error =</span> <span class="fu">sqrt</span>(<span class="fu">diag</span>(<span class="fu">vcov</span>(estimated)))</span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>)</span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a><span class="co">#&gt;           estimate standard_error</span></span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a><span class="co">#&gt; intercept 1.976234     0.59687649</span></span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a><span class="co">#&gt; x1        0.816017     0.09783671</span></span></code></pre></div>
+<p>The models differ most when they extrapolate. At <span class="math inline">\(x = 15\)</span> the true value is 14.61:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">t</span>(<span class="fu">sapply</span>(trend_models, <span class="cf">function</span>(model) {</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>  prediction <span class="ot">&lt;-</span> <span class="fu">predict_gp</span>(model, <span class="dv">15</span>)</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>  <span class="fu">c</span>(<span class="at">mean =</span> prediction<span class="sc">$</span>mean, <span class="at">latent_sd =</span> prediction<span class="sc">$</span>latent_sd)</span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>}))</span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a><span class="co">#&gt;                     mean latent_sd</span></span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a><span class="co">#&gt; zero mean        1.88379 5.8170258</span></span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a><span class="co">#&gt; estimated, ML   14.16448 0.6266155</span></span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a><span class="co">#&gt; estimated, REML 14.21649 0.7546669</span></span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a><span class="co">#&gt; vague prior     14.21649 1.2762504</span></span></code></pre></div>
+<p>The zero-mean model returns towards zero with a large standard
+deviation. The trend models follow the trend. The REML and vague-prior
+models have the same hyperparameters and the same mean, but only the
+vague prior includes the uncertainty of the slope, which grows with the
+distance from the data:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>x_grid <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">15</span>, <span class="at">length.out =</span> <span class="dv">200</span>)</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>plug_in <span class="ot">&lt;-</span> <span class="fu">predict_gp</span>(trend_models[[<span class="st">&quot;estimated, REML&quot;</span>]], x_grid)</span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>marginal <span class="ot">&lt;-</span> <span class="fu">predict_gp</span>(trend_models[[<span class="st">&quot;vague prior&quot;</span>]], x_grid)</span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a></span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a><span class="fu">plot</span>(</span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a>  x_trend,</span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a>  y_trend,</span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a>  <span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">15</span>),</span>
+<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a>  <span class="at">ylim =</span> <span class="fu">range</span>(marginal<span class="sc">$</span>latent_interval, y_trend),</span>
+<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a>  <span class="at">xlab =</span> <span class="st">&quot;x&quot;</span>,</span>
+<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a>  <span class="at">ylab =</span> <span class="st">&quot;f(x)&quot;</span></span>
+<span id="cb10-12"><a href="#cb10-12" tabindex="-1"></a>)</span>
+<span id="cb10-13"><a href="#cb10-13" tabindex="-1"></a><span class="fu">lines</span>(x_grid, <span class="fu">truth</span>(x_grid), <span class="at">col =</span> <span class="st">&quot;grey60&quot;</span>, <span class="at">lwd =</span> <span class="dv">2</span>)</span>
+<span id="cb10-14"><a href="#cb10-14" tabindex="-1"></a><span class="fu">lines</span>(x_grid, marginal<span class="sc">$</span>mean)</span>
+<span id="cb10-15"><a href="#cb10-15" tabindex="-1"></a><span class="fu">matlines</span>(x_grid, marginal<span class="sc">$</span>latent_interval, <span class="at">lty =</span> <span class="dv">1</span>, <span class="at">col =</span> <span class="st">&quot;black&quot;</span>)</span>
+<span id="cb10-16"><a href="#cb10-16" tabindex="-1"></a><span class="fu">matlines</span>(x_grid, plug_in<span class="sc">$</span>latent_interval, <span class="at">lty =</span> <span class="dv">2</span>, <span class="at">col =</span> <span class="st">&quot;black&quot;</span>)</span>
+<span id="cb10-17"><a href="#cb10-17" tabindex="-1"></a><span class="fu">legend</span>(</span>
+<span id="cb10-18"><a href="#cb10-18" tabindex="-1"></a>  <span class="st">&quot;topleft&quot;</span>,</span>
+<span id="cb10-19"><a href="#cb10-19" tabindex="-1"></a>  <span class="at">legend =</span> <span class="fu">c</span>(<span class="st">&quot;vague prior&quot;</span>, <span class="st">&quot;REML plug-in&quot;</span>, <span class="st">&quot;true function&quot;</span>),</span>
+<span id="cb10-20"><a href="#cb10-20" tabindex="-1"></a>  <span class="at">lty =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">1</span>),</span>
+<span id="cb10-21"><a href="#cb10-21" tabindex="-1"></a>  <span class="at">col =</span> <span class="fu">c</span>(<span class="st">&quot;black&quot;</span>, <span class="st">&quot;black&quot;</span>, <span class="st">&quot;grey60&quot;</span>),</span>
+<span id="cb10-22"><a href="#cb10-22" tabindex="-1"></a>  <span class="at">lwd =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">2</span>),</span>
+<span id="cb10-23"><a href="#cb10-23" tabindex="-1"></a>  <span class="at">bty =</span> <span class="st">&quot;n&quot;</span></span>
+<span id="cb10-24"><a href="#cb10-24" tabindex="-1"></a>)</span></code></pre></div>
+<p><img role="img" aria-label="Latent 95% intervals over x from 0 to 15 for the REML plug-in model (dashed lines) and the vague-prior model (solid lines), with the data as points on 0 to 10 and the true function as a grey line. The two intervals coincide over the data and the vague-prior interval becomes wider beyond x = 10." src="data:image/png;base64,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" alt="Latent 95% intervals over x from 0 to 15 for the REML plug-in model (dashed lines) and the vague-prior model (solid lines), with the data as points on 0 to 10 and the true function as a grey line. The two intervals coincide over the data and the vague-prior interval becomes wider beyond x = 10." /></p>
+<p>Leave-one-out predictions follow the same treatment: with
+marginalized coefficients, <code>loo_gp()</code> re-estimates the trend
+without each observation; with estimated coefficients, it keeps the
+full-data estimate.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

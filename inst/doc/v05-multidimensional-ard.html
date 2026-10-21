@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Multidimensional Gaussian Processes and ARD</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Multidimensional Gaussian Processes and
+ARD</h1>
+
+
+
+<div id="scaled-distance" class="section level1">
+<h1>Scaled distance</h1>
+<p>For <span class="math inline">\(D\)</span>-dimensional inputs,
+stationary kernels use the scaled distance</p>
+<p><span class="math display">\[
+r^2(x,x&#39;)
+=
+\sum_{d=1}^D
+\frac{(x_d-x_d&#39;)^2}{\ell_d^2}.
+\]</span></p>
+<p>If</p>
+<p><span class="math display">\[
+\ell_1=\cdots=\ell_D=\ell,
+\]</span></p>
+<p>the kernel is isotropic.</p>
+<p>If the <span class="math inline">\(\ell_d\)</span> differ, the model
+uses automatic relevance determination (ARD).</p>
+</div>
+<div id="example" class="section level1">
+<h1>Example</h1>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">rbind</span>(</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>  <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">0</span>),</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>  <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">0</span>),</span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>  <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a>)</span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a>isotropic <span class="ot">&lt;-</span> <span class="fu">rbf_kernel</span>(</span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a>  <span class="at">variance =</span> <span class="dv">1</span>,</span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a>  <span class="at">length_scale =</span> <span class="dv">1</span></span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a>)</span>
+<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a>ard <span class="ot">&lt;-</span> <span class="fu">rbf_kernel</span>(</span>
+<span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a>  <span class="at">variance =</span> <span class="dv">1</span>,</span>
+<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a>  <span class="at">length_scale =</span> <span class="fu">c</span>(<span class="fl">0.4</span>, <span class="dv">2</span>)</span>
+<span id="cb1-15"><a href="#cb1-15" tabindex="-1"></a>)</span>
+<span id="cb1-16"><a href="#cb1-16" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" tabindex="-1"></a><span class="fu">evaluate_kernel</span>(isotropic, x)</span>
+<span id="cb1-18"><a href="#cb1-18" tabindex="-1"></a><span class="co">#&gt;           [,1]      [,2]      [,3]</span></span>
+<span id="cb1-19"><a href="#cb1-19" tabindex="-1"></a><span class="co">#&gt; [1,] 1.0000000 0.6065307 0.6065307</span></span>
+<span id="cb1-20"><a href="#cb1-20" tabindex="-1"></a><span class="co">#&gt; [2,] 0.6065307 1.0000000 0.3678794</span></span>
+<span id="cb1-21"><a href="#cb1-21" tabindex="-1"></a><span class="co">#&gt; [3,] 0.6065307 0.3678794 1.0000000</span></span>
+<span id="cb1-22"><a href="#cb1-22" tabindex="-1"></a><span class="fu">evaluate_kernel</span>(ard, x)</span>
+<span id="cb1-23"><a href="#cb1-23" tabindex="-1"></a><span class="co">#&gt;            [,1]       [,2]       [,3]</span></span>
+<span id="cb1-24"><a href="#cb1-24" tabindex="-1"></a><span class="co">#&gt; [1,] 1.00000000 0.04393693 0.88249690</span></span>
+<span id="cb1-25"><a href="#cb1-25" tabindex="-1"></a><span class="co">#&gt; [2,] 0.04393693 1.00000000 0.03877421</span></span>
+<span id="cb1-26"><a href="#cb1-26" tabindex="-1"></a><span class="co">#&gt; [3,] 0.88249690 0.03877421 1.00000000</span></span></code></pre></div>
+<p>With <span class="math inline">\(\ell_1=0.4\)</span> and <span class="math inline">\(\ell_2=2\)</span>, covariance changes more rapidly
+along the first input dimension.</p>
+<p>That is a statement about the covariance geometry of this model.</p>
+<p>It is <strong>not</strong> a causal importance claim.</p>
+</div>
+<div id="parameter-paths" class="section level1">
+<h1>Parameter paths</h1>
+<p>Vector length scales become separate optimizer paths:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">kernel_parameters</span>(</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>  ard,</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>  <span class="at">flatten =</span> <span class="cn">TRUE</span></span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>)</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="co">#&gt;        variance length_scale[1] length_scale[2] </span></span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="co">#&gt;             1.0             0.4             2.0</span></span></code></pre></div>
+<p>A single dimension can therefore be updated independently:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>ard_updated <span class="ot">&lt;-</span> <span class="fu">update_kernel_parameters</span>(</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>  ard,</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>  <span class="fu">c</span>(<span class="st">&quot;length_scale[2]&quot;</span> <span class="ot">=</span> <span class="dv">3</span>)</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>)</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="fu">kernel_parameters</span>(</span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>  ard_updated,</span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>  <span class="at">flatten =</span> <span class="cn">TRUE</span></span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>)</span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="co">#&gt;        variance length_scale[1] length_scale[2] </span></span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a><span class="co">#&gt;             1.0             0.4             3.0</span></span></code></pre></div>
+</div>
+<div id="reproducible-two-dimensional-simulation" class="section level1">
+<h1>Reproducible two-dimensional simulation</h1>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>simulation <span class="ot">&lt;-</span> <span class="fu">gp_simulation_scenario</span>(</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>  <span class="st">&quot;ard_2d&quot;</span>,</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  <span class="at">n =</span> <span class="dv">40</span>,</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">1729</span></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>)</span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a><span class="fu">head</span>(simulation<span class="sc">$</span>x)</span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a><span class="co">#&gt;             x1        x2</span></span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a><span class="co">#&gt; [1,] -2.000000 1.0000000</span></span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a><span class="co">#&gt; [2,] -1.897436 0.9870503</span></span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a><span class="co">#&gt; [3,] -1.794872 0.9485364</span></span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a><span class="co">#&gt; [4,] -1.692308 0.8854560</span></span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a><span class="co">#&gt; [5,] -1.589744 0.7994428</span></span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a><span class="co">#&gt; [6,] -1.487179 0.6927244</span></span>
+<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a>simulation<span class="sc">$</span>kernel</span>
+<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a><span class="co">#&gt; Matern-3/2(variance=1.4, length_scale=c(0.45, 2.2))</span></span></code></pre></div>
+<p>Fit the model with the same known covariance family:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>model <span class="ot">&lt;-</span> <span class="fu">fit_gp</span>(</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>  simulation<span class="sc">$</span>x,</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>  simulation<span class="sc">$</span>observed,</span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>  <span class="at">kernel =</span> simulation<span class="sc">$</span>kernel,</span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>  <span class="at">noise_variance =</span> simulation<span class="sc">$</span>noise_variance</span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a>)</span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a>prediction <span class="ot">&lt;-</span> <span class="fu">predict_gp</span>(</span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a>  model,</span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a>  simulation<span class="sc">$</span>x,</span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a>  <span class="at">observation_noise_variance =</span> <span class="dv">0</span></span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a>)</span>
+<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a></span>
+<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a><span class="fu">sqrt</span>(</span>
+<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a>  <span class="fu">mean</span>(</span>
+<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a>    (prediction<span class="sc">$</span>mean <span class="sc">-</span> simulation<span class="sc">$</span>latent)<span class="sc">^</span><span class="dv">2</span></span>
+<span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a>  )</span>
+<span id="cb5-18"><a href="#cb5-18" tabindex="-1"></a>)</span>
+<span id="cb5-19"><a href="#cb5-19" tabindex="-1"></a><span class="co">#&gt; [1] 0.1196077</span></span></code></pre></div>
+</div>
+<div id="ard-and-optimization" class="section level1">
+<h1>ARD and optimization</h1>
+<p>ARD parameters can also be estimated through the same flattened
+parameter interface:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>estimated <span class="ot">&lt;-</span> <span class="fu">optimize_gp</span>(</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>  simulation<span class="sc">$</span>x,</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>  simulation<span class="sc">$</span>observed,</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>  <span class="at">kernel =</span> <span class="fu">rbf_kernel</span>(</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>    <span class="at">variance =</span> <span class="dv">1</span>,</span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>    <span class="at">length_scale =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">1</span>)</span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>  ),</span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a>  <span class="at">noise_variance =</span> <span class="fl">0.04</span>,</span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a>  <span class="at">optimize_noise =</span> <span class="cn">FALSE</span></span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a>)</span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a></span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a><span class="fu">kernel_parameters</span>(</span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a>  estimated<span class="sc">$</span>kernel,</span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a>  <span class="at">flatten =</span> <span class="cn">TRUE</span></span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a>)</span></code></pre></div>
+<p>This example is not evaluated in the vignette; the same code is
+directly reproducible in an interactive R session. The additive-model
+section below estimates hyperparameters with <code>optimize_gp()</code>
+and shows its results.</p>
+</div>
+<div id="interpretation" class="section level1">
+<h1>Interpretation</h1>
+<p>A useful interpretation is geometric:</p>
+<p><span class="math display">\[
+\frac{|x_d-x_d&#39;|}{\ell_d}
+\]</span></p>
+<p>is the dimension-specific standardized separation used by the
+covariance function.</p>
+<p>Large <span class="math inline">\(\ell_d\)</span> makes the process
+vary slowly along dimension <span class="math inline">\(d\)</span>.
+Small <span class="math inline">\(\ell_d\)</span> allows faster
+changes.</p>
+<p>This interpretation remains model-dependent. It should not be
+promoted to causal or mechanistic importance without additional
+assumptions.</p>
+</div>
+<div id="additive-models" class="section level1">
+<h1>Additive models</h1>
+<p>Every kernel above acts on all input columns.
+<code>select_dimensions()</code> restricts a kernel to some of them. For
+a set of columns <span class="math inline">\(S\)</span>,</p>
+<p><span class="math display">\[
+k_S(x, x&#39;) = k(x_S, x&#39;_S).
+\]</span></p>
+<p>This is <span class="math inline">\(k\)</span> composed with a linear
+projection, so it is positive semidefinite whenever <span class="math inline">\(k\)</span> is. A sum of restricted kernels,</p>
+<p><span class="math display">\[
+k(x, x&#39;) = \sum_j k_j(x_{S_j}, x&#39;_{S_j}),
+\]</span></p>
+<p>is the covariance of an additive function <span class="math inline">\(f(x) = \sum_j f_j(x_{S_j})\)</span> with
+independent components <span class="math inline">\(f_j\)</span>. An
+additive model cannot represent interactions between columns in
+different components. In exchange, each component is a function of fewer
+inputs, which takes fewer observations to learn.</p>
+<p>The kernel below has a one-dimensional component in <span class="math inline">\(x_1\)</span> and a two-dimensional ARD component
+in <span class="math inline">\((x_2, x_3)\)</span>:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>additive <span class="ot">&lt;-</span> <span class="fu">sum_kernel</span>(</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>  <span class="fu">select_dimensions</span>(<span class="fu">rbf_kernel</span>(), <span class="dv">1</span>),</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>  <span class="fu">select_dimensions</span>(<span class="fu">rbf_kernel</span>(<span class="at">length_scale =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">1</span>)), <span class="dv">2</span><span class="sc">:</span><span class="dv">3</span>)</span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>)</span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>additive</span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a><span class="co">#&gt; SumKernel(</span></span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a><span class="co">#&gt;   SelectDimensions(columns=1,</span></span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a><span class="co">#&gt;     RBF(variance=1, length_scale=1)</span></span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a><span class="co">#&gt;   )</span></span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a><span class="co">#&gt;   SelectDimensions(columns=c(2, 3),</span></span>
+<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a><span class="co">#&gt;     RBF(variance=1, length_scale=c(1, 1))</span></span>
+<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a><span class="co">#&gt;   )</span></span>
+<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a><span class="co">#&gt; )</span></span></code></pre></div>
+<p>The selection is not a hyperparameter and adds no level to parameter
+paths. ARD length scales have one value per selected column:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">names</span>(<span class="fu">kernel_parameters</span>(additive, <span class="at">flatten =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;kernel1.variance&quot;        &quot;kernel1.length_scale&quot;   </span></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="co">#&gt; [3] &quot;kernel2.variance&quot;        &quot;kernel2.length_scale[1]&quot;</span></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="co">#&gt; [5] &quot;kernel2.length_scale[2]&quot;</span></span></code></pre></div>
+<p>Simulate data from an additive function of three inputs, <span class="math inline">\(f(x) = \sin(2 x_1) + 1.5 \exp(-(x_2^2 +
+x_3^2)/2)\)</span>, with noise standard deviation 0.1:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">2025</span>)</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a></span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>f1 <span class="ot">&lt;-</span> <span class="cf">function</span>(x1) <span class="fu">sin</span>(<span class="dv">2</span> <span class="sc">*</span> x1)</span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>f2 <span class="ot">&lt;-</span> <span class="cf">function</span>(x2, x3) <span class="fl">1.5</span> <span class="sc">*</span> <span class="fu">exp</span>(<span class="sc">-</span>(x2<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> x3<span class="sc">^</span><span class="dv">2</span>) <span class="sc">/</span> <span class="dv">2</span>)</span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>latent <span class="ot">&lt;-</span> <span class="cf">function</span>(x) <span class="fu">f1</span>(x[, <span class="dv">1</span>]) <span class="sc">+</span> <span class="fu">f2</span>(x[, <span class="dv">2</span>], x[, <span class="dv">3</span>])</span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a></span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a>x_train <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">runif</span>(<span class="dv">3</span> <span class="sc">*</span> <span class="dv">100</span>, <span class="sc">-</span><span class="dv">2</span>, <span class="dv">2</span>), <span class="at">ncol =</span> <span class="dv">3</span>)</span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a>y_train <span class="ot">&lt;-</span> <span class="fu">latent</span>(x_train) <span class="sc">+</span> <span class="fu">rnorm</span>(<span class="dv">100</span>, <span class="at">sd =</span> <span class="fl">0.1</span>)</span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a>x_test <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">runif</span>(<span class="dv">3</span> <span class="sc">*</span> <span class="dv">500</span>, <span class="sc">-</span><span class="dv">2</span>, <span class="dv">2</span>), <span class="at">ncol =</span> <span class="dv">3</span>)</span></code></pre></div>
+<p>Estimate the hyperparameters of the additive kernel and, for
+comparison, of an ARD RBF kernel on all three columns:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>additive_model <span class="ot">&lt;-</span> <span class="fu">optimize_gp</span>(</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>  x_train,</span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>  y_train,</span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>  <span class="at">kernel =</span> additive,</span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>  <span class="at">noise_variance =</span> <span class="fl">0.05</span></span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a>)</span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a>full_model <span class="ot">&lt;-</span> <span class="fu">optimize_gp</span>(</span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a>  x_train,</span>
+<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a>  y_train,</span>
+<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a>  <span class="at">kernel =</span> <span class="fu">rbf_kernel</span>(<span class="at">length_scale =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">1</span>)),</span>
+<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a>  <span class="at">noise_variance =</span> <span class="fl">0.05</span></span>
+<span id="cb10-12"><a href="#cb10-12" tabindex="-1"></a>)</span>
+<span id="cb10-13"><a href="#cb10-13" tabindex="-1"></a></span>
+<span id="cb10-14"><a href="#cb10-14" tabindex="-1"></a>test_rmse <span class="ot">&lt;-</span> <span class="cf">function</span>(model) {</span>
+<span id="cb10-15"><a href="#cb10-15" tabindex="-1"></a>  <span class="fu">sqrt</span>(<span class="fu">mean</span>((<span class="fu">predict_gp</span>(model, x_test)<span class="sc">$</span>mean <span class="sc">-</span> <span class="fu">latent</span>(x_test))<span class="sc">^</span><span class="dv">2</span>))</span>
+<span id="cb10-16"><a href="#cb10-16" tabindex="-1"></a>}</span>
+<span id="cb10-17"><a href="#cb10-17" tabindex="-1"></a></span>
+<span id="cb10-18"><a href="#cb10-18" tabindex="-1"></a><span class="fu">data.frame</span>(</span>
+<span id="cb10-19"><a href="#cb10-19" tabindex="-1"></a>  <span class="at">kernel =</span> <span class="fu">c</span>(<span class="st">&quot;additive&quot;</span>, <span class="st">&quot;ARD RBF on all columns&quot;</span>),</span>
+<span id="cb10-20"><a href="#cb10-20" tabindex="-1"></a>  <span class="at">log_marginal_likelihood =</span> <span class="fu">c</span>(</span>
+<span id="cb10-21"><a href="#cb10-21" tabindex="-1"></a>    <span class="fu">log_marginal_likelihood</span>(additive_model),</span>
+<span id="cb10-22"><a href="#cb10-22" tabindex="-1"></a>    <span class="fu">log_marginal_likelihood</span>(full_model)</span>
+<span id="cb10-23"><a href="#cb10-23" tabindex="-1"></a>  ),</span>
+<span id="cb10-24"><a href="#cb10-24" tabindex="-1"></a>  <span class="at">test_rmse =</span> <span class="fu">c</span>(<span class="fu">test_rmse</span>(additive_model), <span class="fu">test_rmse</span>(full_model))</span>
+<span id="cb10-25"><a href="#cb10-25" tabindex="-1"></a>)</span>
+<span id="cb10-26"><a href="#cb10-26" tabindex="-1"></a><span class="co">#&gt;                   kernel log_marginal_likelihood  test_rmse</span></span>
+<span id="cb10-27"><a href="#cb10-27" tabindex="-1"></a><span class="co">#&gt; 1               additive               49.816680 0.05320361</span></span>
+<span id="cb10-28"><a href="#cb10-28" tabindex="-1"></a><span class="co">#&gt; 2 ARD RBF on all columns                9.355743 0.10587888</span></span></code></pre></div>
+<p>The additive model has the higher marginal likelihood and about half
+the error in the latent function at 500 new inputs. The data were
+generated by an additive function, so here the restriction is correct.
+When it is not, the marginal likelihood is the place to see it.</p>
+<div id="components" class="section level2">
+<h2>Components</h2>
+<p>Each component <span class="math inline">\(f_j\)</span> is jointly
+Gaussian with the observations, with <span class="math inline">\(\operatorname{cov}(f_j(x_*), f(X)) = k_j(x_*,
+X)\)</span>, so its posterior mean is</p>
+<p><span class="math display">\[
+\mathrm{E}[f_j(x_*) \mid y] = k_j(x_*, X)\, \alpha,
+\]</span></p>
+<p>where <span class="math inline">\(\alpha\)</span> is stored in the
+fitted model. The additive kernel’s components are its children:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a>component_mean <span class="ot">&lt;-</span> <span class="cf">function</span>(model, index, x) {</span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>  component <span class="ot">&lt;-</span> model<span class="sc">$</span>kernel<span class="sc">$</span>children[[index]]</span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>  <span class="fu">drop</span>(<span class="fu">evaluate_kernel</span>(component, x, model<span class="sc">$</span>x) <span class="sc">%*%</span> model<span class="sc">$</span>alpha)</span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a>}</span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a></span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a>grid <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="sc">-</span><span class="dv">2</span>, <span class="dv">2</span>, <span class="at">length.out =</span> <span class="dv">101</span>)</span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a><span class="co"># Component 1 ignores the second and third columns.</span></span>
+<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a>estimate <span class="ot">&lt;-</span> <span class="fu">component_mean</span>(additive_model, <span class="dv">1</span>, <span class="fu">cbind</span>(grid, <span class="dv">0</span>, <span class="dv">0</span>))</span></code></pre></div>
+<p>Adding a constant to one component and subtracting it from another
+leaves <span class="math inline">\(f\)</span> unchanged, so the data
+identify each component only up to a constant. Centred over the grid,
+the estimate of <span class="math inline">\(f_1\)</span> follows <span class="math inline">\(\sin(2 x_1)\)</span>:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a>centre <span class="ot">&lt;-</span> <span class="cf">function</span>(values) values <span class="sc">-</span> <span class="fu">mean</span>(values)</span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a></span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a><span class="fu">plot</span>(</span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a>  grid,</span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>  <span class="fu">centre</span>(<span class="fu">f1</span>(grid)),</span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a>  <span class="at">type =</span> <span class="st">&quot;l&quot;</span>,</span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a>  <span class="at">lty =</span> <span class="dv">2</span>,</span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a>  <span class="at">xlab =</span> <span class="fu">expression</span>(x[<span class="dv">1</span>]),</span>
+<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a>  <span class="at">ylab =</span> <span class="st">&quot;centred component 1&quot;</span></span>
+<span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a>)</span>
+<span id="cb12-11"><a href="#cb12-11" tabindex="-1"></a><span class="fu">lines</span>(grid, <span class="fu">centre</span>(estimate))</span>
+<span id="cb12-12"><a href="#cb12-12" tabindex="-1"></a><span class="fu">legend</span>(</span>
+<span id="cb12-13"><a href="#cb12-13" tabindex="-1"></a>  <span class="st">&quot;topleft&quot;</span>,</span>
+<span id="cb12-14"><a href="#cb12-14" tabindex="-1"></a>  <span class="at">legend =</span> <span class="fu">c</span>(<span class="st">&quot;posterior mean&quot;</span>, <span class="st">&quot;true function&quot;</span>),</span>
+<span id="cb12-15"><a href="#cb12-15" tabindex="-1"></a>  <span class="at">lty =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>),</span>
+<span id="cb12-16"><a href="#cb12-16" tabindex="-1"></a>  <span class="at">bty =</span> <span class="st">&quot;n&quot;</span></span>
+<span id="cb12-17"><a href="#cb12-17" tabindex="-1"></a>)</span></code></pre></div>
+<p><img role="img" aria-label="The centred posterior mean of the first additive component as a solid line over x1 from -2 to 2, and the centred true function sin(2 x1) as a dashed line. The two curves nearly coincide." src="data:image/png;base64,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" alt="The centred posterior mean of the first additive component as a solid line over x1 from -2 to 2, and the centred true function sin(2 x1) as a dashed line. The two curves nearly coincide." /></p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a></span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a><span class="fu">max</span>(<span class="fu">abs</span>(<span class="fu">centre</span>(estimate) <span class="sc">-</span> <span class="fu">centre</span>(<span class="fu">f1</span>(grid))))</span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a><span class="co">#&gt; [1] 0.07136836</span></span></code></pre></div>
+</div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

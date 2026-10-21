@@ -1,0 +1,12 @@
+bibentry(
+  bibtype = "Manual",
+  header = "To cite gaussianprocesses in publications, please use:",
+  title = "gaussianprocesses: Gaussian Processes from First Principles",
+  author = person(
+    given = "Diogo",
+    family = "Ribeiro"
+  ),
+  year = "2026",
+  note = paste("R package version", meta$Version),
+  url = "https://gitlab.com/DiogoRibeiro7/gaussian-processes-r"
+)

@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Numerical Stability in Gaussian-Process Computation</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Numerical Stability in Gaussian-Process
+Computation</h1>
+
+
+
+<div id="why-numerical-stability-matters" class="section level1">
+<h1>Why numerical stability matters</h1>
+<p>Gaussian-process regression repeatedly solves systems involving</p>
+<p><span class="math display">\[
+C=K+\Sigma_\varepsilon.
+\]</span></p>
+<p>When inputs are duplicated, almost duplicated, or connected by a
+kernel with a very long length scale, <span class="math inline">\(C\)</span> can become poorly conditioned.</p>
+<p>The package treats numerical stabilization as part of the
+implementation, rather than silently replacing the statistical
+model.</p>
+</div>
+<div id="cholesky-rather-than-explicit-inversion" class="section level1">
+<h1>Cholesky rather than explicit inversion</h1>
+<p>The core computation is</p>
+<p><span class="math display">\[
+C = R^\top R.
+\]</span></p>
+<p>To compute</p>
+<p><span class="math display">\[
+\alpha=C^{-1}y,
+\]</span></p>
+<p>the implementation solves</p>
+<p><span class="math display">\[
+R^\top z=y,
+\qquad
+R\alpha=z.
+\]</span></p>
+<p>No explicit matrix inverse is required.</p>
+<p>This is both more stable and usually more efficient.</p>
+</div>
+<div id="jitter-is-not-observation-noise" class="section level1">
+<h1>Jitter is not observation noise</h1>
+<p>If Cholesky factorization fails, the numerical layer can try</p>
+<p><span class="math display">\[
+C_\delta = C + \delta I.
+\]</span></p>
+<p>The scalar <span class="math inline">\(\delta\)</span> is
+<strong>jitter</strong>. It is a numerical device.</p>
+<p>Observation noise,</p>
+<p><span class="math display">\[
+\sigma_\varepsilon^2,
+\]</span></p>
+<p>is part of the statistical model.</p>
+<p>They are stored separately.</p>
+<p>Consider duplicated observations with zero statistical noise:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>model <span class="ot">&lt;-</span> <span class="fu">fit_gp</span>(</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>  <span class="at">x =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">0</span>),</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>  <span class="at">y =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">1</span>),</span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>  <span class="at">kernel =</span> <span class="fu">rbf_kernel</span>(),</span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a>  <span class="at">noise_variance =</span> <span class="dv">0</span>,</span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a>  <span class="at">fallback_jitter =</span> <span class="fl">1e-10</span></span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a>)</span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a>model<span class="sc">$</span>noise_variance</span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a><span class="co">#&gt; [1] 0</span></span>
+<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a>model<span class="sc">$</span>jitter</span>
+<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a><span class="co">#&gt; [1] 1e-10</span></span>
+<span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a>model<span class="sc">$</span>cholesky_attempts</span>
+<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a><span class="co">#&gt; [1] 2</span></span></code></pre></div>
+<p>The statistical model still has zero observation noise even though
+the factorization required numerical stabilization.</p>
+</div>
+<div id="jitter-is-relative-to-the-covariance-scale" class="section level1">
+<h1>Jitter is relative to the covariance scale</h1>
+<p>The jitter is not a fixed number. It is a multiple of the covariance
+scale, the mean prior variance</p>
+<p><span class="math display">\[
+s = \frac{1}{n}\operatorname{tr}(C),
+\qquad
+\delta = \epsilon\, s,
+\]</span></p>
+<p>where the relative jitter <span class="math inline">\(\epsilon\)</span> climbs the ladder <span class="math inline">\(0\)</span>, then <code>fallback_jitter</code>
+<span class="math inline">\(= 10^{-10}\)</span>, multiplied by
+<code>jitter_multiplier</code> <span class="math inline">\(= 10\)</span>
+after each failure.</p>
+<p>Because <span class="math inline">\(\delta\)</span> is proportional
+to <span class="math inline">\(C\)</span>, results do not depend on the
+units of <span class="math inline">\(y\)</span>. Multiplying <span class="math inline">\(y\)</span> by <span class="math inline">\(c\)</span> and every variance parameter by <span class="math inline">\(c^2\)</span> multiplies <span class="math inline">\(C\)</span>, the jitter, and every posterior
+variance by <span class="math inline">\(c^2\)</span>, and the posterior
+mean by <span class="math inline">\(c\)</span>:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="co"># 40 nearly coincident inputs without noise make C numerically singular, so</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="co"># every fit needs jitter.</span></span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">1</span>, <span class="at">length.out =</span> <span class="dv">40</span>)</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>fit_in_units <span class="ot">&lt;-</span> <span class="cf">function</span>(c) {</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>  <span class="fu">fit_gp</span>(</span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>    x,</span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>    c <span class="sc">*</span> <span class="fu">sin</span>(<span class="dv">3</span> <span class="sc">*</span> x),</span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>    <span class="at">kernel =</span> <span class="fu">rbf_kernel</span>(<span class="at">variance =</span> c<span class="sc">^</span><span class="dv">2</span>, <span class="at">length_scale =</span> <span class="fl">0.5</span>),</span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>    <span class="at">noise_variance =</span> <span class="dv">0</span></span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>  )</span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a>}</span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a>unit <span class="ot">&lt;-</span> <span class="fu">fit_in_units</span>(<span class="dv">1</span>)</span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a>small <span class="ot">&lt;-</span> <span class="fu">fit_in_units</span>(<span class="fl">1e-4</span>)</span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a><span class="co"># The absolute jitter scales with C; the relative jitter is the same.</span></span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a><span class="fu">c</span>(<span class="at">unit =</span> unit<span class="sc">$</span>jitter, <span class="at">small =</span> small<span class="sc">$</span>jitter)</span>
+<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a><span class="co">#&gt;  unit small </span></span>
+<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a><span class="co">#&gt; 1e-10 1e-18</span></span>
+<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a><span class="fu">c</span>(</span>
+<span id="cb2-22"><a href="#cb2-22" tabindex="-1"></a>  <span class="at">unit =</span> <span class="fu">gp_numerical_diagnostics</span>(unit)<span class="sc">$</span>relative_jitter,</span>
+<span id="cb2-23"><a href="#cb2-23" tabindex="-1"></a>  <span class="at">small =</span> <span class="fu">gp_numerical_diagnostics</span>(small)<span class="sc">$</span>relative_jitter</span>
+<span id="cb2-24"><a href="#cb2-24" tabindex="-1"></a>)</span>
+<span id="cb2-25"><a href="#cb2-25" tabindex="-1"></a><span class="co">#&gt;  unit small </span></span>
+<span id="cb2-26"><a href="#cb2-26" tabindex="-1"></a><span class="co">#&gt; 1e-10 1e-10</span></span>
+<span id="cb2-27"><a href="#cb2-27" tabindex="-1"></a></span>
+<span id="cb2-28"><a href="#cb2-28" tabindex="-1"></a><span class="co"># Relative difference of the posterior means after undoing the scaling.</span></span>
+<span id="cb2-29"><a href="#cb2-29" tabindex="-1"></a>x_new <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">0.25</span>, <span class="fl">0.5</span>, <span class="fl">1.5</span>)</span>
+<span id="cb2-30"><a href="#cb2-30" tabindex="-1"></a>unit_mean <span class="ot">&lt;-</span> <span class="fu">predict_gp</span>(unit, x_new)<span class="sc">$</span>mean</span>
+<span id="cb2-31"><a href="#cb2-31" tabindex="-1"></a>small_mean <span class="ot">&lt;-</span> <span class="fu">predict_gp</span>(small, x_new)<span class="sc">$</span>mean <span class="sc">/</span> <span class="fl">1e-4</span></span>
+<span id="cb2-32"><a href="#cb2-32" tabindex="-1"></a><span class="fu">max</span>(<span class="fu">abs</span>(small_mean <span class="sc">-</span> unit_mean)) <span class="sc">/</span> <span class="fu">max</span>(<span class="fu">abs</span>(unit_mean))</span>
+<span id="cb2-33"><a href="#cb2-33" tabindex="-1"></a><span class="co">#&gt; [1] 1.281905e-09</span></span></code></pre></div>
+<p>Earlier versions used the same ladder as absolute values. Then the
+jitter was negligible for a covariance of scale <span class="math inline">\(10^8\)</span> and dominant for one of scale <span class="math inline">\(10^{-8}\)</span>. The study in
+<code>inst/benchmarks/jitter-scaling.R</code> rescales problems that
+need jitter by <span class="math inline">\(c = 10^{-4}\)</span> and
+<span class="math inline">\(c = 10^{4}\)</span>:</p>
+<table>
+<colgroup>
+<col width="25%" />
+<col width="25%" />
+<col width="25%" />
+<col width="25%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Policy</th>
+<th>Log marginal likelihood</th>
+<th>Posterior mean and variance</th>
+<th>Function draws</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Absolute jitter</td>
+<td>off by 0.4 to 1.7</td>
+<td>off by up to 37%</td>
+<td>off by up to 110%</td>
+</tr>
+<tr class="even">
+<td>Relative jitter</td>
+<td>within <span class="math inline">\(7 \times 10^{-8}\)</span></td>
+<td>within <span class="math inline">\(2 \times 10^{-8}\)</span></td>
+<td>within <span class="math inline">\(1.2 \times 10^{-6}\)</span></td>
+</tr>
+</tbody>
+</table>
+<p>The table gives relative differences after undoing the scaling. The
+remaining differences under relative jitter come from rounding: scaling
+by <span class="math inline">\(c^2 = 10^{\pm 8}\)</span> is not exact in
+binary arithmetic, and a nearly singular covariance amplifies the
+rounding.</p>
+</div>
+<div id="the-trace-term-of-the-likelihood-gradient" class="section level1">
+<h1>The trace term of the likelihood gradient</h1>
+<p>The gradient of the log marginal likelihood with respect to a log
+parameter <span class="math inline">\(\eta\)</span> is</p>
+<p><span class="math display">\[
+\frac12\left(\alpha^\top D \alpha - \operatorname{tr}(C^{-1}D)\right),
+\qquad
+D = \frac{\partial C}{\partial \eta}.
+\]</span></p>
+<p>The trace needs <span class="math inline">\(C^{-1}\)</span> in some
+form. <code>log_marginal_likelihood_gradient()</code> computes it once
+from the Cholesky factor with <code>chol2inv()</code>, and each
+parameter then costs <span class="math inline">\(O(n^2)\)</span>. The
+alternative uses two triangular solves per parameter and never forms
+<span class="math inline">\(C^{-1}\)</span>, but each parameter then
+costs <span class="math inline">\(O(n^3)\)</span>.</p>
+<p><code>inst/benchmarks/gradient-numerics.R</code> compares the two. A
+periodic kernel on a regular grid gives a circulant <span class="math inline">\(C\)</span> whose eigenvalues are sums of Bessel
+functions, so the exact gradient is known to near machine precision even
+when <span class="math inline">\(C\)</span> is ill-conditioned:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Condition number of <span class="math inline">\(C\)</span></th>
+<th><code>chol2inv()</code></th>
+<th>Triangular solves</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">\(10^4\)</span></td>
+<td><span class="math inline">\(1.5 \times 10^{-13}\)</span></td>
+<td><span class="math inline">\(1.5 \times 10^{-13}\)</span></td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(10^8\)</span></td>
+<td><span class="math inline">\(6.0 \times 10^{-11}\)</span></td>
+<td><span class="math inline">\(6.0 \times 10^{-11}\)</span></td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(10^{12}\)</span></td>
+<td><span class="math inline">\(4.8 \times 10^{-7}\)</span></td>
+<td><span class="math inline">\(4.8 \times 10^{-7}\)</span></td>
+</tr>
+</tbody>
+</table>
+<p>These are the largest relative errors of the gradient. The two
+methods are equally accurate, and both lose accuracy in proportion to
+the conditioning of <span class="math inline">\(C\)</span>, as any
+method in double precision must. The solves were 4 to 18 times slower,
+and the gap grows with the number of parameters, so the package keeps
+<code>chol2inv()</code>.</p>
+</div>
+<div id="near-singular-scenario" class="section level1">
+<h1>Near-singular scenario</h1>
+<p>The benchmark suite contains a reproducible near-singular design:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>simulation <span class="ot">&lt;-</span> <span class="fu">gp_simulation_scenario</span>(</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>  <span class="st">&quot;near_singular&quot;</span>,</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>  <span class="at">n =</span> <span class="dv">30</span>,</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">1729</span></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>)</span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>near_singular_model <span class="ot">&lt;-</span> <span class="fu">fit_gp</span>(</span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>  simulation<span class="sc">$</span>x,</span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>  simulation<span class="sc">$</span>observed,</span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a>  <span class="at">kernel =</span> simulation<span class="sc">$</span>kernel,</span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a>  <span class="at">noise_variance =</span> simulation<span class="sc">$</span>noise_variance</span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a>)</span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a><span class="fu">gp_numerical_diagnostics</span>(</span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a>  near_singular_model</span>
+<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a>)</span>
+<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a><span class="co">#&gt; $observation_noise_variance</span></span>
+<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a><span class="co">#&gt;  [1] 1e-12 1e-12 1e-12 1e-12 1e-12 1e-12 1e-12 1e-12 1e-12 1e-12 1e-12 1e-12</span></span>
+<span id="cb3-19"><a href="#cb3-19" tabindex="-1"></a><span class="co">#&gt; [13] 1e-12 1e-12 1e-12 1e-12 1e-12 1e-12 1e-12 1e-12 1e-12 1e-12 1e-12 1e-12</span></span>
+<span id="cb3-20"><a href="#cb3-20" tabindex="-1"></a><span class="co">#&gt; [25] 1e-12 1e-12 1e-12 1e-12 1e-12 1e-12</span></span>
+<span id="cb3-21"><a href="#cb3-21" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-22"><a href="#cb3-22" tabindex="-1"></a><span class="co">#&gt; $numerical_jitter</span></span>
+<span id="cb3-23"><a href="#cb3-23" tabindex="-1"></a><span class="co">#&gt; [1] 0</span></span>
+<span id="cb3-24"><a href="#cb3-24" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-25"><a href="#cb3-25" tabindex="-1"></a><span class="co">#&gt; $relative_jitter</span></span>
+<span id="cb3-26"><a href="#cb3-26" tabindex="-1"></a><span class="co">#&gt; [1] 0</span></span>
+<span id="cb3-27"><a href="#cb3-27" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-28"><a href="#cb3-28" tabindex="-1"></a><span class="co">#&gt; $covariance_scale</span></span>
+<span id="cb3-29"><a href="#cb3-29" tabindex="-1"></a><span class="co">#&gt; [1] 1</span></span>
+<span id="cb3-30"><a href="#cb3-30" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-31"><a href="#cb3-31" tabindex="-1"></a><span class="co">#&gt; $cholesky_attempts</span></span>
+<span id="cb3-32"><a href="#cb3-32" tabindex="-1"></a><span class="co">#&gt; [1] 1</span></span>
+<span id="cb3-33"><a href="#cb3-33" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-34"><a href="#cb3-34" tabindex="-1"></a><span class="co">#&gt; $used_numerical_jitter</span></span>
+<span id="cb3-35"><a href="#cb3-35" tabindex="-1"></a><span class="co">#&gt; [1] FALSE</span></span>
+<span id="cb3-36"><a href="#cb3-36" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-37"><a href="#cb3-37" tabindex="-1"></a><span class="co">#&gt; $reciprocal_condition_number</span></span>
+<span id="cb3-38"><a href="#cb3-38" tabindex="-1"></a><span class="co">#&gt; [1] 1.915504e-14</span></span>
+<span id="cb3-39"><a href="#cb3-39" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-40"><a href="#cb3-40" tabindex="-1"></a><span class="co">#&gt; $condition_number</span></span>
+<span id="cb3-41"><a href="#cb3-41" tabindex="-1"></a><span class="co">#&gt; [1] 5.220558e+13</span></span>
+<span id="cb3-42"><a href="#cb3-42" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-43"><a href="#cb3-43" tabindex="-1"></a><span class="co">#&gt; $condition_tolerance</span></span>
+<span id="cb3-44"><a href="#cb3-44" tabindex="-1"></a><span class="co">#&gt; [1] 1.490116e-08</span></span>
+<span id="cb3-45"><a href="#cb3-45" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-46"><a href="#cb3-46" tabindex="-1"></a><span class="co">#&gt; $potentially_ill_conditioned</span></span>
+<span id="cb3-47"><a href="#cb3-47" tabindex="-1"></a><span class="co">#&gt; [1] TRUE</span></span>
+<span id="cb3-48"><a href="#cb3-48" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-49"><a href="#cb3-49" tabindex="-1"></a><span class="co">#&gt; $min_cholesky_diagonal</span></span>
+<span id="cb3-50"><a href="#cb3-50" tabindex="-1"></a><span class="co">#&gt; [1] 1.412941e-06</span></span>
+<span id="cb3-51"><a href="#cb3-51" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-52"><a href="#cb3-52" tabindex="-1"></a><span class="co">#&gt; $max_cholesky_diagonal</span></span>
+<span id="cb3-53"><a href="#cb3-53" tabindex="-1"></a><span class="co">#&gt; [1] 1</span></span>
+<span id="cb3-54"><a href="#cb3-54" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-55"><a href="#cb3-55" tabindex="-1"></a><span class="co">#&gt; $observation_types</span></span>
+<span id="cb3-56"><a href="#cb3-56" tabindex="-1"></a><span class="co">#&gt;    type observations covariance_scale reciprocal_condition_number</span></span>
+<span id="cb3-57"><a href="#cb3-57" tabindex="-1"></a><span class="co">#&gt; 1 value           30                1                1.915504e-14</span></span></code></pre></div>
+<p>The diagnostic output separates:</p>
+<ul>
+<li>observation-noise variance;</li>
+<li>numerical jitter, absolute and relative to the covariance
+scale;</li>
+<li>Cholesky attempts;</li>
+<li>reciprocal condition number;</li>
+<li>condition-number flag.</li>
+</ul>
+</div>
+<div id="posterior-variances" class="section level1">
+<h1>Posterior variances</h1>
+<p>Analytically, posterior variances cannot be negative. Numerically,
+expressions such as</p>
+<p><span class="math display">\[
+K_{**}-K_{*f}C^{-1}K_{f*}
+\]</span></p>
+<p>can produce tiny negative diagonal values due to floating-point
+cancellation.</p>
+<p>The package distinguishes two cases.</p>
+<p>For a value of floating-point scale,</p>
+<p><span class="math display">\[
+-\varepsilon &lt; 0,
+\]</span></p>
+<p>the marginal variance is clipped to zero.</p>
+<p>For a materially negative value, the computation stops with a
+numerical error.</p>
+<p>This prevents an instability from being silently converted into an
+apparently valid uncertainty estimate.</p>
+</div>
+<div id="benchmarking-stability-separately-from-speed" class="section level1">
+<h1>Benchmarking stability separately from speed</h1>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>suite <span class="ot">&lt;-</span> <span class="fu">run_gp_benchmark_suite</span>(</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>  <span class="at">scenarios =</span> <span class="st">&quot;near_singular&quot;</span>,</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  <span class="at">n =</span> <span class="dv">20</span>,</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  <span class="at">n_inducing =</span> <span class="dv">6</span>,</span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>  <span class="at">repeats =</span> <span class="dv">1</span>,</span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">42</span></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a>)</span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a>suite<span class="sc">$</span>stability</span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a><span class="co">#&gt;        scenario exact_numerical_jitter exact_reciprocal_condition_number</span></span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a><span class="co">#&gt; 1 near_singular                      0                      4.291551e-14</span></span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a><span class="co">#&gt;   exact_cholesky_attempts sparse_kuu_jitter sparse_a_jitter</span></span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a><span class="co">#&gt; 1                       1                 0               0</span></span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a><span class="co">#&gt;   sparse_fitc_floor_count</span></span>
+<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a><span class="co">#&gt; 1                       6</span></span>
+<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a>suite<span class="sc">$</span>performance</span>
+<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a><span class="co">#&gt;        scenario model fit_elapsed_seconds predict_elapsed_seconds</span></span>
+<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a><span class="co">#&gt; 1 near_singular exact                0.00                       0</span></span>
+<span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a><span class="co">#&gt; 2 near_singular  FITC                0.02                       0</span></span>
+<span id="cb4-20"><a href="#cb4-20" tabindex="-1"></a><span class="co">#&gt;   retained_model_bytes n_training n_inducing</span></span>
+<span id="cb4-21"><a href="#cb4-21" tabindex="-1"></a><span class="co">#&gt; 1                10672         20         20</span></span>
+<span id="cb4-22"><a href="#cb4-22" tabindex="-1"></a><span class="co">#&gt; 2                14128         20          6</span></span>
+<span id="cb4-23"><a href="#cb4-23" tabindex="-1"></a>suite<span class="sc">$</span>accuracy</span>
+<span id="cb4-24"><a href="#cb4-24" tabindex="-1"></a><span class="co">#&gt;        scenario model latent_truth_rmse latent_truth_mae</span></span>
+<span id="cb4-25"><a href="#cb4-25" tabindex="-1"></a><span class="co">#&gt; 1 near_singular exact      7.663762e-06     5.759123e-06</span></span>
+<span id="cb4-26"><a href="#cb4-26" tabindex="-1"></a><span class="co">#&gt; 2 near_singular  FITC      4.145902e-03     3.239425e-03</span></span>
+<span id="cb4-27"><a href="#cb4-27" tabindex="-1"></a><span class="co">#&gt;   posterior_mean_rmse_vs_exact posterior_mean_max_abs_error_vs_exact</span></span>
+<span id="cb4-28"><a href="#cb4-28" tabindex="-1"></a><span class="co">#&gt; 1                  0.000000000                           0.000000000</span></span>
+<span id="cb4-29"><a href="#cb4-29" tabindex="-1"></a><span class="co">#&gt; 2                  0.004145559                           0.009472644</span></span>
+<span id="cb4-30"><a href="#cb4-30" tabindex="-1"></a><span class="co">#&gt;   latent_variance_mae_vs_exact latent_variance_max_abs_error_vs_exact</span></span>
+<span id="cb4-31"><a href="#cb4-31" tabindex="-1"></a><span class="co">#&gt; 1                 0.000000e+00                           0.000000e+00</span></span>
+<span id="cb4-32"><a href="#cb4-32" tabindex="-1"></a><span class="co">#&gt; 2                 1.428755e-05                           3.964489e-05</span></span></code></pre></div>
+<p>Those are different tables intentionally.</p>
+<p>A method can be faster but less accurate. A model can fit the latent
+truth well while still requiring numerical stabilization. A small
+reciprocal condition number does not by itself prove statistical
+misspecification.</p>
+<p>Keeping these concepts separate is one of the central design rules of
+the package.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

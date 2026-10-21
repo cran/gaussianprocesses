@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Gaussian Processes for Time Series</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Gaussian Processes for Time Series</h1>
+
+
+
+<div id="time-is-an-input-not-a-special-likelihood" class="section level1">
+<h1>Time is an input, not a special likelihood</h1>
+<p>For a one-dimensional time series, a Gaussian process can be written
+as</p>
+<p><span class="math display">\[
+f(t)\sim\mathcal{GP}(m(t),k(t,t&#39;)).
+\]</span></p>
+<p>The important modelling choice is therefore the covariance
+structure.</p>
+<p>Time ordering is not silently inferred by the package. It is
+validated explicitly.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>time <span class="ot">&lt;-</span> <span class="fu">as.Date</span>(<span class="st">&quot;2026-01-01&quot;</span>) <span class="sc">+</span> <span class="dv">0</span><span class="sc">:</span><span class="dv">9</span></span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>index <span class="ot">&lt;-</span> <span class="fu">gp_time_index</span>(time)</span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a>index</span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a><span class="co">#&gt;  [1] 0 1 2 3 4 5 6 7 8 9</span></span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;origin&quot;)</span></span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a><span class="co">#&gt; [1] &quot;2026-01-01&quot;</span></span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;unit&quot;)</span></span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a><span class="co">#&gt; [1] &quot;days&quot;</span></span>
+<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;input_type&quot;)</span></span>
+<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Date&quot;</span></span>
+<span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;class&quot;)</span></span>
+<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a><span class="co">#&gt; [1] &quot;gaussianprocesses_time_index&quot; &quot;numeric&quot;</span></span>
+<span id="cb1-15"><a href="#cb1-15" tabindex="-1"></a><span class="fu">attributes</span>(index)[<span class="fu">c</span>(<span class="st">&quot;origin&quot;</span>, <span class="st">&quot;unit&quot;</span>, <span class="st">&quot;input_type&quot;</span>)]</span>
+<span id="cb1-16"><a href="#cb1-16" tabindex="-1"></a><span class="co">#&gt; $origin</span></span>
+<span id="cb1-17"><a href="#cb1-17" tabindex="-1"></a><span class="co">#&gt; [1] &quot;2026-01-01&quot;</span></span>
+<span id="cb1-18"><a href="#cb1-18" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb1-19"><a href="#cb1-19" tabindex="-1"></a><span class="co">#&gt; $unit</span></span>
+<span id="cb1-20"><a href="#cb1-20" tabindex="-1"></a><span class="co">#&gt; [1] &quot;days&quot;</span></span>
+<span id="cb1-21"><a href="#cb1-21" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb1-22"><a href="#cb1-22" tabindex="-1"></a><span class="co">#&gt; $input_type</span></span>
+<span id="cb1-23"><a href="#cb1-23" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Date&quot;</span></span></code></pre></div>
+<p>Non-increasing time values are rejected rather than silently
+sorted.</p>
+</div>
+<div id="trend-periodicity-and-local-variation" class="section level1">
+<h1>Trend, periodicity, and local variation</h1>
+<p>A useful additive model is</p>
+<p><span class="math display">\[
+k(t,t&#39;)
+=
+k_{\text{trend}}(t,t&#39;)
++
+k_{\text{periodic}}(t,t&#39;)
++
+k_{\text{local}}(t,t&#39;).
+\]</span></p>
+<p>The convenience constructor makes this structure explicit:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>kernel <span class="ot">&lt;-</span> <span class="fu">time_series_kernel</span>(</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>  <span class="at">period =</span> <span class="dv">12</span>,</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>  <span class="at">trend_variance =</span> <span class="fl">0.03</span>,</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  <span class="at">periodic_variance =</span> <span class="dv">1</span>,</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>  <span class="at">periodic_length_scale =</span> <span class="fl">0.8</span>,</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>  <span class="at">local_variance =</span> <span class="fl">0.25</span>,</span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>  <span class="at">local_length_scale =</span> <span class="dv">2</span></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>)</span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>kernel</span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a><span class="co">#&gt; SumKernel(</span></span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a><span class="co">#&gt;   Linear(variance=0.03)</span></span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a><span class="co">#&gt;   Periodic(variance=1, length_scale=0.8, period=12)</span></span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a><span class="co">#&gt;   Matern-3/2(variance=0.25, length_scale=2)</span></span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a><span class="co">#&gt; )</span></span></code></pre></div>
+<p>The linear component is nonstationary. Therefore the convenience
+model does not hide a claim that the full process is stationary.</p>
+</div>
+<div id="reproducible-example" class="section level1">
+<h1>Reproducible example</h1>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>time_numeric <span class="ot">&lt;-</span> <span class="dv">0</span><span class="sc">:</span><span class="dv">24</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>response <span class="ot">&lt;-</span></span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  <span class="fl">0.04</span> <span class="sc">*</span> time_numeric <span class="sc">+</span></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>  <span class="fu">sin</span>(<span class="dv">2</span> <span class="sc">*</span> pi <span class="sc">*</span> time_numeric <span class="sc">/</span> <span class="dv">12</span>) <span class="sc">+</span></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>  <span class="fl">0.15</span> <span class="sc">*</span> <span class="fu">cos</span>(<span class="dv">2</span> <span class="sc">*</span> pi <span class="sc">*</span> time_numeric <span class="sc">/</span> <span class="dv">3</span>)</span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>model <span class="ot">&lt;-</span> <span class="fu">fit_time_series_gp</span>(</span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>  time_numeric,</span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a>  response,</span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a>  <span class="at">kernel =</span> kernel,</span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a>  <span class="at">noise_variance =</span> <span class="fl">0.05</span></span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="interpolation-versus-extrapolation" class="section level1">
+<h1>Interpolation versus extrapolation</h1>
+<p>Requested times are labelled by their relation to the observed time
+range:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>requested_time <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">6.5</span>, <span class="fl">18.5</span>, <span class="dv">25</span>, <span class="dv">26</span>, <span class="dv">27</span>)</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>forecast <span class="ot">&lt;-</span> <span class="fu">forecast_gp</span>(</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  model,</span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>  requested_time,</span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>  <span class="at">interval_level =</span> <span class="fl">0.95</span></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a>)</span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a><span class="fu">data.frame</span>(</span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a>  <span class="at">time =</span> requested_time,</span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a>  <span class="at">region =</span> forecast<span class="sc">$</span>region,</span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a>  <span class="at">mean =</span> forecast<span class="sc">$</span>mean,</span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a>  <span class="at">lower =</span> forecast<span class="sc">$</span>prediction_interval[, <span class="st">&quot;lower&quot;</span>],</span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a>  <span class="at">upper =</span> forecast<span class="sc">$</span>prediction_interval[, <span class="st">&quot;upper&quot;</span>]</span>
+<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a>)</span>
+<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a><span class="co">#&gt;   time        region       mean       lower     upper</span></span>
+<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a><span class="co">#&gt; 1  6.5 interpolation 0.05428375 -0.52357428 0.6321418</span></span>
+<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a><span class="co">#&gt; 2 18.5 interpolation 0.53296146 -0.04502145 1.1109444</span></span>
+<span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a><span class="co">#&gt; 3 25.0      forecast 1.44511324  0.46511947 2.4251070</span></span>
+<span id="cb4-20"><a href="#cb4-20" tabindex="-1"></a><span class="co">#&gt; 4 26.0      forecast 1.78246861  0.49787230 3.0670649</span></span>
+<span id="cb4-21"><a href="#cb4-21" tabindex="-1"></a><span class="co">#&gt; 5 27.0      forecast 2.03583851  0.61116417 3.4605129</span></span></code></pre></div>
+<p>Points inside the training interval are interpolation.</p>
+<p>Points after the final observation are forward extrapolation,
+labelled <code>forecast</code>.</p>
+<p>The posterior equations are the same in both cases. Their
+interpretation is not: extrapolation depends much more strongly on the
+chosen kernel structure.</p>
+</div>
+<div id="rolling-origin-evaluation" class="section level1">
+<h1>Rolling-origin evaluation</h1>
+<p>A time-series model should not be evaluated by randomly shuffling
+observations.</p>
+<p>The package supplies expanding-window rolling-origin evaluation.</p>
+<p>For an origin <span class="math inline">\(T_j\)</span>, the training
+set is</p>
+<p><span class="math display">\[
+\{(t_i,y_i): i\le T_j\},
+\]</span></p>
+<p>and only future observations are scored.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>backtest <span class="ot">&lt;-</span> <span class="fu">rolling_origin_gp</span>(</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>  time_numeric,</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>  response,</span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>  <span class="at">kernel =</span> kernel,</span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>  <span class="at">initial_window =</span> <span class="dv">12</span>,</span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a>  <span class="at">horizon =</span> <span class="dv">3</span>,</span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a>  <span class="at">step =</span> <span class="dv">3</span>,</span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a>  <span class="at">noise_variance =</span> <span class="fl">0.05</span>,</span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a>  <span class="at">interval_level =</span> <span class="fl">0.9</span></span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a>)</span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a><span class="fu">head</span>(backtest)</span>
+<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a><span class="co">#&gt; Gaussian-process rolling-origin backtest</span></span>
+<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a><span class="co">#&gt;   forecasts: 6</span></span>
+<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a><span class="co">#&gt;   origins: 2</span></span>
+<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a><span class="co">#&gt;   maximum horizon: 3</span></span></code></pre></div>
+<p>The supplied kernel and noise parameters are kept fixed across
+origins. This prevents future observations from leaking into earlier
+origins through whole-series retuning.</p>
+</div>
+<div id="point-and-probabilistic-metrics" class="section level1">
+<h1>Point and probabilistic metrics</h1>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="fu">forecast_metrics</span>(backtest)</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="co">#&gt; $n_forecasts</span></span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="co">#&gt; [1] 12</span></span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="co">#&gt; $rmse</span></span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="co">#&gt; [1] 0.3017888</span></span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a><span class="co">#&gt; $mae</span></span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="co">#&gt; [1] 0.2292877</span></span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a><span class="co">#&gt; $standardized_rmse</span></span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a><span class="co">#&gt; [1] 0.3832272</span></span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a><span class="co">#&gt; $empirical_coverage</span></span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a><span class="co">#&gt; [1] 1</span></span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a><span class="co">#&gt; $interval_level</span></span>
+<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a><span class="co">#&gt; [1] 0.9</span></span>
+<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-20"><a href="#cb6-20" tabindex="-1"></a><span class="co">#&gt; $mean_interval_width</span></span>
+<span id="cb6-21"><a href="#cb6-21" tabindex="-1"></a><span class="co">#&gt; [1] 2.406712</span></span>
+<span id="cb6-22"><a href="#cb6-22" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-23"><a href="#cb6-23" tabindex="-1"></a><span class="co">#&gt; $mean_log_predictive_density</span></span>
+<span id="cb6-24"><a href="#cb6-24" tabindex="-1"></a><span class="co">#&gt; [1] -0.6607537</span></span></code></pre></div>
+<p>The returned summaries include point errors and uncertainty-aware
+quantities:</p>
+<ul>
+<li>RMSE;</li>
+<li>MAE;</li>
+<li>standardized RMSE;</li>
+<li>empirical interval coverage;</li>
+<li>mean interval width;</li>
+<li>mean log predictive density.</li>
+</ul>
+<p>These answer different questions. A narrow interval is not useful if
+coverage is poor, and a good RMSE does not imply calibrated predictive
+uncertainty.</p>
+</div>
+<div id="structural-breaks" class="section level1">
+<h1>Structural breaks</h1>
+<p>A stationary kernel assumes that the series behaves the same way
+throughout. After a structural break, a new level, a new seasonal
+pattern, or a new volatility, that assumption is wrong, and it is wrong
+in the direction that matters most for forecasting: the data after the
+break are the only information about the future.</p>
+<p><code>changepoint_kernel()</code> switches between two kernels around
+a location <span class="math inline">\(c\)</span> with the sigmoid <span class="math inline">\(s(t) = 1 / (1 + e^{-a (t - c)})\)</span>:</p>
+<p><span class="math display">\[
+k(t, t&#39;) = (1 - s(t))\, k_1(t, t&#39;)\, (1 - s(t&#39;)) + s(t)\,
+k_2(t, t&#39;)\, s(t&#39;).
+\]</span></p>
+<p>The two regimes are independent processes: as the steepness <span class="math inline">\(a\)</span> grows, times on opposite sides of <span class="math inline">\(c\)</span> become uncorrelated. Each term has the
+form <span class="math inline">\(g(t) k(t, t&#39;) g(t&#39;)\)</span>,
+so the kernel is positive semidefinite. The location and the steepness
+are hyperparameters, estimated with the others.</p>
+<p>Simulate 90 daily observations with a break on 15 March: before it, a
+slow oscillation around zero; after it, a new level of 2.5 with a weekly
+pattern.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">28</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>dates <span class="ot">&lt;-</span> <span class="fu">as.Date</span>(<span class="st">&quot;2026-01-01&quot;</span>) <span class="sc">+</span> <span class="dv">0</span><span class="sc">:</span><span class="dv">89</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>day <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">gp_time_index</span>(dates))</span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>break_day <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">as.Date</span>(<span class="st">&quot;2026-03-15&quot;</span>) <span class="sc">-</span> dates[<span class="dv">1</span>])</span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>regime_signal <span class="ot">&lt;-</span> <span class="cf">function</span>(day) {</span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>  <span class="fu">ifelse</span>(</span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>    day <span class="sc">&lt;</span> break_day,</span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>    <span class="fu">sin</span>(<span class="dv">2</span> <span class="sc">*</span> pi <span class="sc">*</span> day <span class="sc">/</span> <span class="dv">30</span>),</span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a>    <span class="fl">2.5</span> <span class="sc">+</span> <span class="fl">0.4</span> <span class="sc">*</span> <span class="fu">sin</span>(<span class="dv">2</span> <span class="sc">*</span> pi <span class="sc">*</span> day <span class="sc">/</span> <span class="dv">7</span>)</span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a>  )</span>
+<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a>}</span>
+<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a>observed <span class="ot">&lt;-</span> <span class="fu">regime_signal</span>(day) <span class="sc">+</span> <span class="fu">rnorm</span>(<span class="dv">90</span>, <span class="at">sd =</span> <span class="fl">0.15</span>)</span></code></pre></div>
+<p>Each regime gets a slowly varying level and a local component. The
+changepoint model has one copy of this kernel per regime:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>regime <span class="ot">&lt;-</span> <span class="cf">function</span>() {</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>  <span class="fu">sum_kernel</span>(</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>    <span class="fu">rbf_kernel</span>(<span class="at">variance =</span> <span class="dv">1</span>, <span class="at">length_scale =</span> <span class="dv">60</span>),</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>    <span class="fu">matern52_kernel</span>(<span class="at">variance =</span> <span class="fl">0.5</span>, <span class="at">length_scale =</span> <span class="dv">5</span>)</span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>  )</span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>}</span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a></span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a>single <span class="ot">&lt;-</span> <span class="fu">optimize_gp</span>(</span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a>  day,</span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a>  observed,</span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a>  <span class="at">kernel =</span> <span class="fu">regime</span>(),</span>
+<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a>  <span class="at">noise_variance =</span> <span class="fl">0.05</span></span>
+<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a>)</span>
+<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a>changing <span class="ot">&lt;-</span> <span class="fu">optimize_gp</span>(</span>
+<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a>  day,</span>
+<span id="cb8-16"><a href="#cb8-16" tabindex="-1"></a>  observed,</span>
+<span id="cb8-17"><a href="#cb8-17" tabindex="-1"></a>  <span class="at">kernel =</span> <span class="fu">changepoint_kernel</span>(<span class="fu">regime</span>(), <span class="fu">regime</span>(), <span class="at">location =</span> <span class="dv">45</span>),</span>
+<span id="cb8-18"><a href="#cb8-18" tabindex="-1"></a>  <span class="at">noise_variance =</span> <span class="fl">0.05</span>,</span>
+<span id="cb8-19"><a href="#cb8-19" tabindex="-1"></a>  <span class="at">n_starts =</span> <span class="dv">4</span></span>
+<span id="cb8-20"><a href="#cb8-20" tabindex="-1"></a>)</span>
+<span id="cb8-21"><a href="#cb8-21" tabindex="-1"></a></span>
+<span id="cb8-22"><a href="#cb8-22" tabindex="-1"></a><span class="fu">c</span>(</span>
+<span id="cb8-23"><a href="#cb8-23" tabindex="-1"></a>  <span class="at">single =</span> <span class="fu">log_marginal_likelihood</span>(single),</span>
+<span id="cb8-24"><a href="#cb8-24" tabindex="-1"></a>  <span class="at">changepoint =</span> <span class="fu">log_marginal_likelihood</span>(changing)</span>
+<span id="cb8-25"><a href="#cb8-25" tabindex="-1"></a>)</span>
+<span id="cb8-26"><a href="#cb8-26" tabindex="-1"></a><span class="co">#&gt;      single changepoint </span></span>
+<span id="cb8-27"><a href="#cb8-27" tabindex="-1"></a><span class="co">#&gt;  -30.060432    1.576984</span></span></code></pre></div>
+<p>The likelihood is often multimodal in the location, so
+<code>optimize_gp()</code> starts it at evenly spaced quantiles of the
+time index and bounds it by the training range. The estimate is on the
+time-index scale, days since the first date, and converts back to a
+date:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>dates[<span class="dv">1</span>] <span class="sc">+</span> changing<span class="sc">$</span>kernel<span class="sc">$</span>parameters<span class="sc">$</span>location</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;2026-03-14&quot;</span></span></code></pre></div>
+<p>To forecast, refit both models with <code>fit_time_series_gp()</code>
+and the estimated parameters, which records the dates:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>single_model <span class="ot">&lt;-</span> <span class="fu">fit_time_series_gp</span>(</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>  dates,</span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>  observed,</span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>  <span class="at">kernel =</span> single<span class="sc">$</span>kernel,</span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>  <span class="at">noise_variance =</span> single<span class="sc">$</span>noise_variance</span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a>)</span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a>changepoint_model <span class="ot">&lt;-</span> <span class="fu">fit_time_series_gp</span>(</span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a>  dates,</span>
+<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a>  observed,</span>
+<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a>  <span class="at">kernel =</span> changing<span class="sc">$</span>kernel,</span>
+<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a>  <span class="at">noise_variance =</span> changing<span class="sc">$</span>noise_variance</span>
+<span id="cb10-12"><a href="#cb10-12" tabindex="-1"></a>)</span>
+<span id="cb10-13"><a href="#cb10-13" tabindex="-1"></a></span>
+<span id="cb10-14"><a href="#cb10-14" tabindex="-1"></a>future <span class="ot">&lt;-</span> <span class="fu">max</span>(dates) <span class="sc">+</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">7</span>, <span class="dv">14</span>, <span class="dv">21</span>)</span>
+<span id="cb10-15"><a href="#cb10-15" tabindex="-1"></a>single_forecast <span class="ot">&lt;-</span> <span class="fu">forecast_gp</span>(single_model, future)</span>
+<span id="cb10-16"><a href="#cb10-16" tabindex="-1"></a>changepoint_forecast <span class="ot">&lt;-</span> <span class="fu">forecast_gp</span>(changepoint_model, future)</span>
+<span id="cb10-17"><a href="#cb10-17" tabindex="-1"></a></span>
+<span id="cb10-18"><a href="#cb10-18" tabindex="-1"></a><span class="fu">data.frame</span>(</span>
+<span id="cb10-19"><a href="#cb10-19" tabindex="-1"></a>  <span class="at">date =</span> future,</span>
+<span id="cb10-20"><a href="#cb10-20" tabindex="-1"></a>  <span class="at">truth =</span> <span class="fu">regime_signal</span>(<span class="fu">as.numeric</span>(future <span class="sc">-</span> dates[<span class="dv">1</span>])),</span>
+<span id="cb10-21"><a href="#cb10-21" tabindex="-1"></a>  <span class="at">single =</span> single_forecast<span class="sc">$</span>mean,</span>
+<span id="cb10-22"><a href="#cb10-22" tabindex="-1"></a>  <span class="at">single_sd =</span> single_forecast<span class="sc">$</span>latent_sd,</span>
+<span id="cb10-23"><a href="#cb10-23" tabindex="-1"></a>  <span class="at">changepoint =</span> changepoint_forecast<span class="sc">$</span>mean,</span>
+<span id="cb10-24"><a href="#cb10-24" tabindex="-1"></a>  <span class="at">changepoint_sd =</span> changepoint_forecast<span class="sc">$</span>latent_sd</span>
+<span id="cb10-25"><a href="#cb10-25" tabindex="-1"></a>)</span>
+<span id="cb10-26"><a href="#cb10-26" tabindex="-1"></a><span class="co">#&gt;         date    truth     single single_sd changepoint changepoint_sd</span></span>
+<span id="cb10-27"><a href="#cb10-27" tabindex="-1"></a><span class="co">#&gt; 1 2026-04-01 2.187267 2.11466528 0.3314004    2.361444      0.2539722</span></span>
+<span id="cb10-28"><a href="#cb10-28" tabindex="-1"></a><span class="co">#&gt; 2 2026-04-07 2.110029 1.28347380 0.8130879    2.538680      0.3814812</span></span>
+<span id="cb10-29"><a href="#cb10-29" tabindex="-1"></a><span class="co">#&gt; 3 2026-04-14 2.110029 0.46876725 1.2406813    2.539052      0.3815911</span></span>
+<span id="cb10-30"><a href="#cb10-30" tabindex="-1"></a><span class="co">#&gt; 4 2026-04-21 2.110029 0.09322427 1.3451337    2.539052      0.3815911</span></span></code></pre></div>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a>grid <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="fu">min</span>(dates), <span class="fu">max</span>(dates) <span class="sc">+</span> <span class="dv">21</span>, <span class="at">by =</span> <span class="dv">1</span>)</span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>single_path <span class="ot">&lt;-</span> <span class="fu">forecast_gp</span>(single_model, grid)</span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>changepoint_path <span class="ot">&lt;-</span> <span class="fu">forecast_gp</span>(changepoint_model, grid)</span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a></span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a><span class="fu">plot</span>(</span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a>  dates,</span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a>  observed,</span>
+<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a>  <span class="at">xlim =</span> <span class="fu">range</span>(grid),</span>
+<span id="cb11-9"><a href="#cb11-9" tabindex="-1"></a>  <span class="at">ylim =</span> <span class="fu">range</span>(</span>
+<span id="cb11-10"><a href="#cb11-10" tabindex="-1"></a>    single_path<span class="sc">$</span>latent_interval,</span>
+<span id="cb11-11"><a href="#cb11-11" tabindex="-1"></a>    changepoint_path<span class="sc">$</span>latent_interval,</span>
+<span id="cb11-12"><a href="#cb11-12" tabindex="-1"></a>    observed</span>
+<span id="cb11-13"><a href="#cb11-13" tabindex="-1"></a>  ),</span>
+<span id="cb11-14"><a href="#cb11-14" tabindex="-1"></a>  <span class="at">xlab =</span> <span class="st">&quot;date&quot;</span>,</span>
+<span id="cb11-15"><a href="#cb11-15" tabindex="-1"></a>  <span class="at">ylab =</span> <span class="st">&quot;series&quot;</span></span>
+<span id="cb11-16"><a href="#cb11-16" tabindex="-1"></a>)</span>
+<span id="cb11-17"><a href="#cb11-17" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> <span class="fu">as.Date</span>(<span class="st">&quot;2026-03-15&quot;</span>), <span class="at">col =</span> <span class="st">&quot;grey60&quot;</span>, <span class="at">lty =</span> <span class="dv">3</span>)</span>
+<span id="cb11-18"><a href="#cb11-18" tabindex="-1"></a><span class="fu">lines</span>(grid, changepoint_path<span class="sc">$</span>mean)</span>
+<span id="cb11-19"><a href="#cb11-19" tabindex="-1"></a><span class="fu">matlines</span>(grid, changepoint_path<span class="sc">$</span>latent_interval, <span class="at">lty =</span> <span class="dv">1</span>, <span class="at">col =</span> <span class="st">&quot;grey40&quot;</span>)</span>
+<span id="cb11-20"><a href="#cb11-20" tabindex="-1"></a><span class="fu">lines</span>(grid, single_path<span class="sc">$</span>mean, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb11-21"><a href="#cb11-21" tabindex="-1"></a><span class="fu">matlines</span>(grid, single_path<span class="sc">$</span>latent_interval, <span class="at">lty =</span> <span class="dv">2</span>, <span class="at">col =</span> <span class="st">&quot;grey40&quot;</span>)</span>
+<span id="cb11-22"><a href="#cb11-22" tabindex="-1"></a><span class="fu">legend</span>(</span>
+<span id="cb11-23"><a href="#cb11-23" tabindex="-1"></a>  <span class="st">&quot;topleft&quot;</span>,</span>
+<span id="cb11-24"><a href="#cb11-24" tabindex="-1"></a>  <span class="at">legend =</span> <span class="fu">c</span>(<span class="st">&quot;changepoint&quot;</span>, <span class="st">&quot;single kernel&quot;</span>),</span>
+<span id="cb11-25"><a href="#cb11-25" tabindex="-1"></a>  <span class="at">lty =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>),</span>
+<span id="cb11-26"><a href="#cb11-26" tabindex="-1"></a>  <span class="at">bty =</span> <span class="st">&quot;n&quot;</span></span>
+<span id="cb11-27"><a href="#cb11-27" tabindex="-1"></a>)</span></code></pre></div>
+<p><img role="img" aria-label="Observed series from January to March 2026 with a jump on 15 March, followed by three weeks of forecasts. The single-kernel forecast (dashed) falls from the new level towards zero with a widening interval; the changepoint forecast (solid) stays near the new level of about 2.5 with a narrower interval." src="data:image/png;base64,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" alt="Observed series from January to March 2026 with a jump on 15 March, followed by three weeks of forecasts. The single-kernel forecast (dashed) falls from the new level towards zero with a widening interval; the changepoint forecast (solid) stays near the new level of about 2.5 with a narrower interval." /></p>
+<p>The single kernel has to explain a jump of 2.5 with one covariance.
+It does so with short-memory variation, and its forecast falls back
+towards zero over the following three weeks while its interval widens.
+The changepoint model estimates the post-break regime from the 17 days
+after the break: a persistent new level, with short-memory variation
+around it. Its forecast stays at that level; the weekly pattern is too
+short-lived in its estimated kernel to carry forward. Its uncertainty
+reflects only how much those 17 days determine.</p>
+<p>Some caveats:</p>
+<ul>
+<li>The location is a point estimate: its uncertainty is not propagated
+into the forecasts.</li>
+<li>Several breaks come from nesting changepoint kernels, at the cost of
+more hyperparameters and more local optima.</li>
+<li><code>time_series_kernel(period, changepoint = c)</code> builds the
+same structure around the trend-periodic-local kernel, with independent
+copies before and after the break. To place a break at a date, convert
+it with <code>gp_time_index(c(dates[1], date))[2]</code>.</li>
+</ul>
+</div>
+<div id="long-series-kalman-filtering-and-smoothing" class="section level1">
+<h1>Long series: Kalman filtering and smoothing</h1>
+<p>Exact inference factorizes the <span class="math inline">\(n \times
+n\)</span> covariance matrix of the observations, which costs <span class="math inline">\(O(n^3)\)</span> time and <span class="math inline">\(O(n^2)\)</span> memory: a few thousand
+observations are the practical limit. For time series there is an exact
+shortcut. On one input, a Matérn process with <span class="math inline">\(\nu = p + \tfrac12\)</span> is the first component
+of the state <span class="math inline">\(x(t) = (f(t), f&#39;(t),
+\ldots, f^{(p)}(t))\)</span> of a linear stochastic differential
+equation</p>
+<p><span class="math display">\[
+\mathrm{d}x = F x\,\mathrm{d}t + L\,\mathrm{d}W,
+\]</span></p>
+<p>where <span class="math inline">\(F\)</span> is a <span class="math inline">\((p + 1) \times (p + 1)\)</span> matrix fixed by
+the length scale and <span class="math inline">\(W\)</span> is white
+noise whose intensity is fixed by the variance (Hartikainen and Särkkä,
+2010). Observed at sorted times, the process is a linear Gaussian
+state-space model: the state moves from one time to the next by the
+matrix exponential <span class="math inline">\(e^{F \Delta t}\)</span>,
+and each observation is the first state component plus noise. The Kalman
+filter then computes the log marginal likelihood from one-step
+prediction errors, and the Rauch-Tung-Striebel smoother computes the
+posterior, in <span class="math inline">\(O(n)\)</span> time. This is
+not an approximation: it is the same Gaussian posterior, computed in a
+different order.</p>
+<p><code>fit_time_series_gp(method = &quot;state_space&quot;)</code> uses it for
+Matérn-1/2, 3/2, and 5/2 kernels, their sums, and scaled versions of
+them. Fit 1500 irregularly spaced observations both ways:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">3</span>)</span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>long_time <span class="ot">&lt;-</span> <span class="fu">sort</span>(<span class="fu">runif</span>(<span class="dv">1500</span>, <span class="dv">0</span>, <span class="dv">300</span>))</span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>long_y <span class="ot">&lt;-</span> <span class="fu">sin</span>(<span class="dv">2</span> <span class="sc">*</span> pi <span class="sc">*</span> long_time <span class="sc">/</span> <span class="dv">50</span>) <span class="sc">+</span> <span class="fl">0.3</span> <span class="sc">*</span> <span class="fu">sin</span>(long_time <span class="sc">/</span> <span class="dv">3</span>) <span class="sc">+</span></span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a>  <span class="fu">rnorm</span>(<span class="dv">1500</span>, <span class="at">sd =</span> <span class="fl">0.2</span>)</span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>long_kernel <span class="ot">&lt;-</span> <span class="fu">sum_kernel</span>(</span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a>  <span class="fu">matern52_kernel</span>(<span class="at">variance =</span> <span class="dv">1</span>, <span class="at">length_scale =</span> <span class="dv">15</span>),</span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a>  <span class="fu">matern12_kernel</span>(<span class="at">variance =</span> <span class="fl">0.1</span>, <span class="at">length_scale =</span> <span class="dv">2</span>)</span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a>)</span>
+<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a></span>
+<span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a>exact_long <span class="ot">&lt;-</span> <span class="fu">fit_time_series_gp</span>(</span>
+<span id="cb12-11"><a href="#cb12-11" tabindex="-1"></a>  long_time,</span>
+<span id="cb12-12"><a href="#cb12-12" tabindex="-1"></a>  long_y,</span>
+<span id="cb12-13"><a href="#cb12-13" tabindex="-1"></a>  <span class="at">kernel =</span> long_kernel,</span>
+<span id="cb12-14"><a href="#cb12-14" tabindex="-1"></a>  <span class="at">noise_variance =</span> <span class="fl">0.04</span></span>
+<span id="cb12-15"><a href="#cb12-15" tabindex="-1"></a>)</span>
+<span id="cb12-16"><a href="#cb12-16" tabindex="-1"></a>kalman_long <span class="ot">&lt;-</span> <span class="fu">fit_time_series_gp</span>(</span>
+<span id="cb12-17"><a href="#cb12-17" tabindex="-1"></a>  long_time,</span>
+<span id="cb12-18"><a href="#cb12-18" tabindex="-1"></a>  long_y,</span>
+<span id="cb12-19"><a href="#cb12-19" tabindex="-1"></a>  <span class="at">kernel =</span> long_kernel,</span>
+<span id="cb12-20"><a href="#cb12-20" tabindex="-1"></a>  <span class="at">noise_variance =</span> <span class="fl">0.04</span>,</span>
+<span id="cb12-21"><a href="#cb12-21" tabindex="-1"></a>  <span class="at">method =</span> <span class="st">&quot;state_space&quot;</span></span>
+<span id="cb12-22"><a href="#cb12-22" tabindex="-1"></a>)</span>
+<span id="cb12-23"><a href="#cb12-23" tabindex="-1"></a></span>
+<span id="cb12-24"><a href="#cb12-24" tabindex="-1"></a><span class="fu">c</span>(<span class="at">exact =</span> <span class="fu">logLik</span>(exact_long), <span class="at">state_space =</span> <span class="fu">logLik</span>(kalman_long))</span>
+<span id="cb12-25"><a href="#cb12-25" tabindex="-1"></a><span class="co">#&gt;       exact state_space </span></span>
+<span id="cb12-26"><a href="#cb12-26" tabindex="-1"></a><span class="co">#&gt;    29.78026    29.78026</span></span></code></pre></div>
+<p>Forecasts are computed by placing the requested times among the
+training times as steps without an observation, so they cost <span class="math inline">\(O(n + m)\)</span> for <span class="math inline">\(m\)</span> requested times:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a>requested_long <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">5</span>, <span class="fl">150.25</span>, <span class="fl">299.9</span>, <span class="dv">305</span>, <span class="dv">330</span>)</span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a>exact_forecast <span class="ot">&lt;-</span> <span class="fu">forecast_gp</span>(exact_long, requested_long)</span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>kalman_forecast <span class="ot">&lt;-</span> <span class="fu">forecast_gp</span>(kalman_long, requested_long)</span>
+<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a></span>
+<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a><span class="fu">data.frame</span>(</span>
+<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a>  <span class="at">time =</span> requested_long,</span>
+<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a>  <span class="at">region =</span> kalman_forecast<span class="sc">$</span>region,</span>
+<span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a>  <span class="at">exact_mean =</span> exact_forecast<span class="sc">$</span>mean,</span>
+<span id="cb13-9"><a href="#cb13-9" tabindex="-1"></a>  <span class="at">state_space_mean =</span> kalman_forecast<span class="sc">$</span>mean,</span>
+<span id="cb13-10"><a href="#cb13-10" tabindex="-1"></a>  <span class="at">exact_sd =</span> exact_forecast<span class="sc">$</span>observation_sd,</span>
+<span id="cb13-11"><a href="#cb13-11" tabindex="-1"></a>  <span class="at">state_space_sd =</span> kalman_forecast<span class="sc">$</span>observation_sd</span>
+<span id="cb13-12"><a href="#cb13-12" tabindex="-1"></a>)</span>
+<span id="cb13-13"><a href="#cb13-13" tabindex="-1"></a><span class="co">#&gt;     time                 region   exact_mean state_space_mean  exact_sd</span></span>
+<span id="cb13-14"><a href="#cb13-14" tabindex="-1"></a><span class="co">#&gt; 1  -5.00 backward_extrapolation -0.131140250     -0.131140250 0.6140062</span></span>
+<span id="cb13-15"><a href="#cb13-15" tabindex="-1"></a><span class="co">#&gt; 2 150.25          interpolation -0.018190832     -0.018190832 0.2661293</span></span>
+<span id="cb13-16"><a href="#cb13-16" tabindex="-1"></a><span class="co">#&gt; 3 299.90          interpolation -0.068115710     -0.068115710 0.2319000</span></span>
+<span id="cb13-17"><a href="#cb13-17" tabindex="-1"></a><span class="co">#&gt; 4 305.00               forecast  0.008434929      0.008434929 0.5996931</span></span>
+<span id="cb13-18"><a href="#cb13-18" tabindex="-1"></a><span class="co">#&gt; 5 330.00               forecast  0.070838157      0.070838157 1.0579626</span></span>
+<span id="cb13-19"><a href="#cb13-19" tabindex="-1"></a><span class="co">#&gt;   state_space_sd</span></span>
+<span id="cb13-20"><a href="#cb13-20" tabindex="-1"></a><span class="co">#&gt; 1      0.6140062</span></span>
+<span id="cb13-21"><a href="#cb13-21" tabindex="-1"></a><span class="co">#&gt; 2      0.2661293</span></span>
+<span id="cb13-22"><a href="#cb13-22" tabindex="-1"></a><span class="co">#&gt; 3      0.2319000</span></span>
+<span id="cb13-23"><a href="#cb13-23" tabindex="-1"></a><span class="co">#&gt; 4      0.5996931</span></span>
+<span id="cb13-24"><a href="#cb13-24" tabindex="-1"></a><span class="co">#&gt; 5      1.0579626</span></span>
+<span id="cb13-25"><a href="#cb13-25" tabindex="-1"></a></span>
+<span id="cb13-26"><a href="#cb13-26" tabindex="-1"></a><span class="fu">c</span>(</span>
+<span id="cb13-27"><a href="#cb13-27" tabindex="-1"></a>  <span class="at">mean =</span> <span class="fu">max</span>(<span class="fu">abs</span>(kalman_forecast<span class="sc">$</span>mean <span class="sc">-</span> exact_forecast<span class="sc">$</span>mean)),</span>
+<span id="cb13-28"><a href="#cb13-28" tabindex="-1"></a>  <span class="at">sd =</span> <span class="fu">max</span>(<span class="fu">abs</span>(kalman_forecast<span class="sc">$</span>observation_sd <span class="sc">-</span> exact_forecast<span class="sc">$</span>observation_sd))</span>
+<span id="cb13-29"><a href="#cb13-29" tabindex="-1"></a>)</span>
+<span id="cb13-30"><a href="#cb13-30" tabindex="-1"></a><span class="co">#&gt;         mean           sd </span></span>
+<span id="cb13-31"><a href="#cb13-31" tabindex="-1"></a><span class="co">#&gt; 1.072926e-14 8.659740e-15</span></span></code></pre></div>
+<p>The two methods agree to rounding error. The package’s tests check
+the log marginal likelihood, posterior means, and posterior variances
+against the exact GP to a relative <span class="math inline">\(10^{-8}\)</span> for each supported kernel, on
+irregular and tied inputs. <code>predict()</code>,
+<code>logLik()</code>, <code>fitted()</code>, and
+<code>rolling_origin_gp(method = &quot;state_space&quot;)</code> work as for exact
+models, and <code>sample_gp_posterior()</code> draws by forward
+filtering, backward sampling.</p>
+<p>Kernels without a finite-dimensional state, such as the RBF,
+periodic, linear, and rational quadratic kernels and products of
+kernels, are refused. In particular <code>time_series_kernel()</code>,
+which has linear and periodic components, needs
+<code>method = &quot;exact&quot;</code>:</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="fu">tryCatch</span>(</span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>  <span class="fu">fit_time_series_gp</span>(</span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>    time_numeric,</span>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a>    response,</span>
+<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a>    <span class="at">kernel =</span> kernel,</span>
+<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a>    <span class="at">noise_variance =</span> <span class="fl">0.05</span>,</span>
+<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">&quot;state_space&quot;</span></span>
+<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a>  ),</span>
+<span id="cb14-9"><a href="#cb14-9" tabindex="-1"></a>  <span class="at">gaussianprocesses_state_space_error =</span> conditionMessage</span>
+<span id="cb14-10"><a href="#cb14-10" tabindex="-1"></a>)</span>
+<span id="cb14-11"><a href="#cb14-11" tabindex="-1"></a><span class="co">#&gt; [1] &quot;The Linear kernel has no exact state-space representation; use method = \&quot;exact\&quot;. Matern-1/2, 3/2, and 5/2 kernels, their sums, and scaled versions have one.&quot;</span></span></code></pre></div>
+<p><code>optimize_time_series_gp()</code> estimates the hyperparameters
+with either method. With <code>method = &quot;state_space&quot;</code> each
+objective value is one filter pass, and the optimizer approximates
+gradients by finite differences:</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a>first <span class="ot">&lt;-</span> <span class="fu">seq_len</span>(<span class="dv">300</span>)</span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a>kalman_fit <span class="ot">&lt;-</span> <span class="fu">optimize_time_series_gp</span>(</span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a>  long_time[first],</span>
+<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a>  long_y[first],</span>
+<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a>  <span class="at">kernel =</span> <span class="fu">matern52_kernel</span>(<span class="at">length_scale =</span> <span class="dv">10</span>),</span>
+<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a>  <span class="at">noise_variance =</span> <span class="fl">0.1</span>,</span>
+<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a>  <span class="at">n_starts =</span> <span class="dv">1</span>,</span>
+<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a>  <span class="at">method =</span> <span class="st">&quot;state_space&quot;</span></span>
+<span id="cb15-9"><a href="#cb15-9" tabindex="-1"></a>)</span>
+<span id="cb15-10"><a href="#cb15-10" tabindex="-1"></a>exact_fit <span class="ot">&lt;-</span> <span class="fu">optimize_time_series_gp</span>(</span>
+<span id="cb15-11"><a href="#cb15-11" tabindex="-1"></a>  long_time[first],</span>
+<span id="cb15-12"><a href="#cb15-12" tabindex="-1"></a>  long_y[first],</span>
+<span id="cb15-13"><a href="#cb15-13" tabindex="-1"></a>  <span class="at">kernel =</span> <span class="fu">matern52_kernel</span>(<span class="at">length_scale =</span> <span class="dv">10</span>),</span>
+<span id="cb15-14"><a href="#cb15-14" tabindex="-1"></a>  <span class="at">noise_variance =</span> <span class="fl">0.1</span>,</span>
+<span id="cb15-15"><a href="#cb15-15" tabindex="-1"></a>  <span class="at">n_starts =</span> <span class="dv">1</span></span>
+<span id="cb15-16"><a href="#cb15-16" tabindex="-1"></a>)</span>
+<span id="cb15-17"><a href="#cb15-17" tabindex="-1"></a></span>
+<span id="cb15-18"><a href="#cb15-18" tabindex="-1"></a><span class="fu">rbind</span>(</span>
+<span id="cb15-19"><a href="#cb15-19" tabindex="-1"></a>  <span class="at">exact =</span> exact_fit<span class="sc">$</span>optimization<span class="sc">$</span>optimized_parameters,</span>
+<span id="cb15-20"><a href="#cb15-20" tabindex="-1"></a>  <span class="at">state_space =</span> kalman_fit<span class="sc">$</span>optimization<span class="sc">$</span>optimized_parameters</span>
+<span id="cb15-21"><a href="#cb15-21" tabindex="-1"></a>)</span>
+<span id="cb15-22"><a href="#cb15-22" tabindex="-1"></a><span class="co">#&gt;             variance length_scale noise_variance</span></span>
+<span id="cb15-23"><a href="#cb15-23" tabindex="-1"></a><span class="co">#&gt; exact       1.177376     12.85724     0.04011387</span></span>
+<span id="cb15-24"><a href="#cb15-24" tabindex="-1"></a><span class="co">#&gt; state_space 1.177368     12.85721     0.04011387</span></span></code></pre></div>
+<p>The cost grows linearly in the number of observations.
+<code>inst/benchmarks/state-space-scaling.R</code> times both methods on
+irregular series, as the median of three runs in fresh R processes on a
+desktop machine. With a Matérn-5/2 kernel, fitting 5000 observations
+took 0.18 seconds by Kalman smoothing and 28 seconds by exact inference;
+100 000 observations took 3.6 seconds, where exact inference would need
+80 GB for the covariance matrix alone. Between 1000 and 100 000
+observations the log-log slope of the fitting time was 1.02 (0.96 for
+the sum of a Matérn-5/2 and a Matérn-1/2 kernel), against 3.1 to 3.4 for
+exact inference between 1000 and 5000. One filter pass, the cost of one
+objective value during optimization, took about 17 microseconds per
+observation.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

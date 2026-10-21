@@ -1,0 +1,274 @@
+---
+title: "Numerical Stability in Gaussian-Process Computation"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Numerical Stability in Gaussian-Process Computation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(gaussianprocesses)
+```
+
+# Why numerical stability matters
+
+Gaussian-process regression repeatedly solves systems involving
+
+\[
+C=K+\Sigma_\varepsilon.
+\]
+
+When inputs are duplicated, almost duplicated, or connected by a kernel with a
+very long length scale, \(C\) can become poorly conditioned.
+
+The package treats numerical stabilization as part of the implementation,
+rather than silently replacing the statistical model.
+
+# Cholesky rather than explicit inversion
+
+The core computation is
+
+\[
+C = R^\top R.
+\]
+
+To compute
+
+\[
+\alpha=C^{-1}y,
+\]
+
+the implementation solves
+
+\[
+R^\top z=y,
+\qquad
+R\alpha=z.
+\]
+
+No explicit matrix inverse is required.
+
+This is both more stable and usually more efficient.
+
+# Jitter is not observation noise
+
+If Cholesky factorization fails, the numerical layer can try
+
+\[
+C_\delta = C + \delta I.
+\]
+
+The scalar \(\delta\) is **jitter**. It is a numerical device.
+
+Observation noise,
+
+\[
+\sigma_\varepsilon^2,
+\]
+
+is part of the statistical model.
+
+They are stored separately.
+
+Consider duplicated observations with zero statistical noise:
+
+```{r}
+model <- fit_gp(
+  x = c(0, 0),
+  y = c(1, 1),
+  kernel = rbf_kernel(),
+  noise_variance = 0,
+  fallback_jitter = 1e-10
+)
+
+model$noise_variance
+model$jitter
+model$cholesky_attempts
+```
+
+The statistical model still has zero observation noise even though the
+factorization required numerical stabilization.
+
+# Jitter is relative to the covariance scale
+
+The jitter is not a fixed number. It is a multiple of the covariance scale,
+the mean prior variance
+
+\[
+s = \frac{1}{n}\operatorname{tr}(C),
+\qquad
+\delta = \epsilon\, s,
+\]
+
+where the relative jitter \(\epsilon\) climbs the ladder \(0\), then
+`fallback_jitter` \(= 10^{-10}\), multiplied by `jitter_multiplier`
+\(= 10\) after each failure.
+
+Because \(\delta\) is proportional to \(C\), results do not depend on the
+units of \(y\). Multiplying \(y\) by \(c\) and every variance parameter by
+\(c^2\) multiplies \(C\), the jitter, and every posterior variance by
+\(c^2\), and the posterior mean by \(c\):
+
+```{r}
+# 40 nearly coincident inputs without noise make C numerically singular, so
+# every fit needs jitter.
+x <- seq(0, 1, length.out = 40)
+
+fit_in_units <- function(c) {
+  fit_gp(
+    x,
+    c * sin(3 * x),
+    kernel = rbf_kernel(variance = c^2, length_scale = 0.5),
+    noise_variance = 0
+  )
+}
+
+unit <- fit_in_units(1)
+small <- fit_in_units(1e-4)
+
+# The absolute jitter scales with C; the relative jitter is the same.
+c(unit = unit$jitter, small = small$jitter)
+c(
+  unit = gp_numerical_diagnostics(unit)$relative_jitter,
+  small = gp_numerical_diagnostics(small)$relative_jitter
+)
+
+# Relative difference of the posterior means after undoing the scaling.
+x_new <- c(0.25, 0.5, 1.5)
+unit_mean <- predict_gp(unit, x_new)$mean
+small_mean <- predict_gp(small, x_new)$mean / 1e-4
+max(abs(small_mean - unit_mean)) / max(abs(unit_mean))
+```
+
+Earlier versions used the same ladder as absolute values. Then the jitter
+was negligible for a covariance of scale \(10^8\) and dominant for one of
+scale \(10^{-8}\). The study in `inst/benchmarks/jitter-scaling.R`
+rescales problems that need jitter by \(c = 10^{-4}\) and \(c = 10^{4}\):
+
+| Policy | Log marginal likelihood | Posterior mean and variance | Function draws |
+|---|---|---|---|
+| Absolute jitter | off by 0.4 to 1.7 | off by up to 37% | off by up to 110% |
+| Relative jitter | within \(7 \times 10^{-8}\) | within \(2 \times 10^{-8}\) | within \(1.2 \times 10^{-6}\) |
+
+The table gives relative differences after undoing the scaling. The
+remaining differences under relative jitter come from rounding: scaling by
+\(c^2 = 10^{\pm 8}\) is not exact in binary arithmetic, and a nearly singular
+covariance amplifies the rounding.
+
+# The trace term of the likelihood gradient
+
+The gradient of the log marginal likelihood with respect to a log parameter
+\(\eta\) is
+
+\[
+\frac12\left(\alpha^\top D \alpha - \operatorname{tr}(C^{-1}D)\right),
+\qquad
+D = \frac{\partial C}{\partial \eta}.
+\]
+
+The trace needs \(C^{-1}\) in some form. `log_marginal_likelihood_gradient()`
+computes it once from the Cholesky factor with `chol2inv()`, and each
+parameter then costs \(O(n^2)\). The alternative uses two triangular solves
+per parameter and never forms \(C^{-1}\), but each parameter then costs
+\(O(n^3)\).
+
+`inst/benchmarks/gradient-numerics.R` compares the two. A periodic kernel on
+a regular grid gives a circulant \(C\) whose eigenvalues are sums of Bessel
+functions, so the exact gradient is known to near machine precision even
+when \(C\) is ill-conditioned:
+
+| Condition number of \(C\) | `chol2inv()` | Triangular solves |
+|---|---|---|
+| \(10^4\) | \(1.5 \times 10^{-13}\) | \(1.5 \times 10^{-13}\) |
+| \(10^8\) | \(6.0 \times 10^{-11}\) | \(6.0 \times 10^{-11}\) |
+| \(10^{12}\) | \(4.8 \times 10^{-7}\) | \(4.8 \times 10^{-7}\) |
+
+These are the largest relative errors of the gradient. The two methods are
+equally accurate, and both lose accuracy in proportion to the conditioning
+of \(C\), as any method in double precision must. The solves were 4 to 18
+times slower, and the gap grows with the number of parameters, so the
+package keeps `chol2inv()`.
+
+# Near-singular scenario
+
+The benchmark suite contains a reproducible near-singular design:
+
+```{r}
+simulation <- gp_simulation_scenario(
+  "near_singular",
+  n = 30,
+  seed = 1729
+)
+
+near_singular_model <- fit_gp(
+  simulation$x,
+  simulation$observed,
+  kernel = simulation$kernel,
+  noise_variance = simulation$noise_variance
+)
+
+gp_numerical_diagnostics(
+  near_singular_model
+)
+```
+
+The diagnostic output separates:
+
+- observation-noise variance;
+- numerical jitter, absolute and relative to the covariance scale;
+- Cholesky attempts;
+- reciprocal condition number;
+- condition-number flag.
+
+# Posterior variances
+
+Analytically, posterior variances cannot be negative. Numerically, expressions
+such as
+
+\[
+K_{**}-K_{*f}C^{-1}K_{f*}
+\]
+
+can produce tiny negative diagonal values due to floating-point cancellation.
+
+The package distinguishes two cases.
+
+For a value of floating-point scale,
+
+\[
+-\varepsilon < 0,
+\]
+
+the marginal variance is clipped to zero.
+
+For a materially negative value, the computation stops with a numerical error.
+
+This prevents an instability from being silently converted into an apparently
+valid uncertainty estimate.
+
+# Benchmarking stability separately from speed
+
+```{r}
+suite <- run_gp_benchmark_suite(
+  scenarios = "near_singular",
+  n = 20,
+  n_inducing = 6,
+  repeats = 1,
+  seed = 42
+)
+
+suite$stability
+suite$performance
+suite$accuracy
+```
+
+Those are different tables intentionally.
+
+A method can be faster but less accurate. A model can fit the latent truth well
+while still requiring numerical stabilization. A small reciprocal condition
+number does not by itself prove statistical misspecification.
+
+Keeping these concepts separate is one of the central design rules of the
+package.
